@@ -2,7 +2,7 @@
 
 Simulation complète Civilization × SimCity × RimWorld en JavaScript pur (HTML/CSS/JS ES6 modules). Aucune dépendance externe.
 
-## Structure
+## Structuregezez
 
 ```
 index.html           — Point d'entrée HTML
