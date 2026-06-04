@@ -125,7 +125,10 @@ class PlayerPanel {
         <div id="pp-stats"></div>
       </div>
     `;
-    document.body.appendChild(panel);
+    // Insérer dans le panneau droit, pas en floating par-dessus
+    const rightPanel = document.getElementById('right-panel');
+    if (rightPanel) rightPanel.appendChild(panel);
+    else document.body.appendChild(panel);
     this.el = panel;
 
     // Événements boutons
@@ -727,18 +730,13 @@ function injectMenuStyles() {
     .menu-footer { color: #2a3a50; font-size: 11px; letter-spacing: 1px; }
 
     /* ——— PANNEAU JOUEUR ——— */
+    /* Inséré dans le panneau droit existant, pas en flottant */
     #player-panel {
-      position: fixed;
-      bottom: 115px; right: 0;
-      width: 220px;
-      background: linear-gradient(180deg, #0f1520 0%, #0d1117 100%);
-      border-left: 1px solid #1e2d42;
-      border-top: 1px solid #1e2d42;
-      border-radius: 8px 0 0 0;
-      padding: 12px;
-      z-index: 50;
+      width: 100%;
+      background: transparent;
+      border-top: 2px solid #2a4060;
+      padding: 10px;
       font-size: 11px;
-      max-height: 420px;
       overflow-y: auto;
     }
     .pp-title {
