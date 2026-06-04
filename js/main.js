@@ -377,9 +377,13 @@ class CivilSim {
     this.camera.y += (this.camera.targetY - this.camera.y) * 0.15;
 
     if (this.running) {
-      // dtBio plafonné : la vitesse n'accélère pas les besoins vitaux
-      const dtBio = Math.min(rawDt * this.speed, 2.0);
-      this._update(dtBio, timestamp);
+      // Fix vitesse : on fait N passes de rawDt chacune
+      // x1=1 passe, x2=2 passes, x4=4 passes, x8=8 passes
+      // Chaque passe utilise rawDt (≈1) donc la biologie reste réaliste
+      const passes = this.speed;
+      for (let p = 0; p < passes; p++) {
+        this._update(rawDt, timestamp);
+      }
     }
     this._render(timestamp);
   }
@@ -425,6 +429,7 @@ class CivilSim {
     const entities = this.plantMgr.plants.length + this.animalMgr.animals.length +
       this.settlements.reduce((s, c) => s + c.humans.length, 0);
     this.ui?.updateFPS(this._fps, entities);
+    this._updateWarPanel();
   }
 
   _render(timestamp = 0) {
@@ -601,6 +606,12 @@ class CivilSim {
       );
       document.getElementById(id)?.classList.add('active');
     };
+    document.getElementById('btn-menu')?.addEventListener('click', () => {
+      if (confirm('Retourner au menu principal ?')) {
+        localStorage.removeItem('civilsim_v1');
+        location.reload();
+      }
+    });
     document.getElementById('btn-pause')?.addEventListener('click', () => { this.running = false; setActive('btn-pause'); });
     document.getElementById('btn-play') ?.addEventListener('click', () => { this.running = true; this.speed = 1; setActive('btn-play'); });
     document.getElementById('btn-x2')  ?.addEventListener('click', () => { this.running = true; this.speed = 2; setActive('btn-x2'); });
@@ -612,6 +623,33 @@ class CivilSim {
         location.reload();
       }
     });
+  }
+
+  _updateWarPanel() {
+    const el = document.getElementById('war-stats');
+    if (!el) return;
+    const wars = this.settlements.filter(s => s.atWarWith && s.atWarWith.size > 0);
+    if (wars.length === 0) {
+      el.innerHTML = '<p class="muted" style="font-size:10px">Aucune guerre en cours ☮</p>';
+      return;
+    }
+    const seen = new Set();
+    let html = '';
+    for (const s of wars) {
+      for (const eid of s.atWarWith) {
+        const key = [s.id,eid].sort().join('-');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const enemy = this.settlements.find(x => x.id === eid);
+        if (!enemy) continue;
+        html += `<div style="padding:3px 0;border-bottom:1px solid #1e2d42;font-size:10px">
+          <span style="color:${s.factionColor}">${s.name}</span>
+          <span style="color:#ff4444"> ⚔ </span>
+          <span style="color:${enemy.factionColor}">${enemy.name}</span>
+        </div>`;
+      }
+    }
+    el.innerHTML = html || '<p class="muted" style="font-size:10px">☮ Paix</p>';
   }
 
   resetFromSave() { location.reload(); }
