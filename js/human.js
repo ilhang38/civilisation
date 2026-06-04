@@ -1,3 +1,4 @@
+import { atlas } from './textures.js';
 import { Genome } from './genetics.js';
 // ============================================================
 // human.js — Entité humaine avec IA et système de besoins

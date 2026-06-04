@@ -1,3 +1,4 @@
+import { atlas } from './textures.js';
 // ============================================================
 // animals.js — Herbivores & Prédateurs — rendu HD + IA
 // GRAPHISMES : sprites dessinés par type, ombres, animations

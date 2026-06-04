@@ -1,3 +1,4 @@
+import { atlas } from './textures.js';
 // ============================================================
 // plants.js — Plantes avec rendu haute qualité
 // GRAPHISMES : arbres avec couronne détaillée, baies colorées,

@@ -13,6 +13,7 @@ import { SaveManager }       from './save.js';
 import { SeasonSystem }      from './seasons.js';
 import { DiplomacySystem }   from './diplomacy.js';
 import { ParticleSystem }    from './particles.js';
+import { atlas }               from './textures.js';
 import { HistorySystem, EVENT_TYPE } from './history.js';
 import { TerritoryRenderer, HeatmapRenderer, RouteRenderer, NotificationSystem } from './renderer.js';
 import { HeroRegistry }      from './genetics.js';
@@ -25,7 +26,7 @@ const CONFIG = {
   INITIAL_CAMPS: 3,
 };
 
-const VERSION = '2.0.0';
+const VERSION = '3.0.0';
 
 // ============================================================
 // MENU PRINCIPAL

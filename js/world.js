@@ -1,27 +1,26 @@
 // ============================================================
-// world.js — OPTION B : Moteur PixiJS WebGL
-// Même API que l'original — compatibilité totale garantie
+// world.js — NIVEAU 3 : Textures pixel art procédurales
 // ============================================================
 
 import { BIOME, BIOME_PROPS, getBiomeFromParams } from './biomes.js';
+import { atlas, SPR }                              from './textures.js';
 
-// ——— Noise (identique) ——————————————————————————————
 function fade(t){return t*t*t*(t*(t*6-15)+10);}
 function lerp(a,b,t){return a+t*(b-a);}
 function buildPerm(seed){
-  const p=[];for(let i=0;i<256;i++)p[i]=i;
-  let s=seed|0;
+  const p=[];for(let i=0;i<256;i++)p[i]=i;let s=seed|0;
   for(let i=255;i>0;i--){s=(s*1664525+1013904223)&0xffffffff;const j=Math.abs(s)%(i+1);[p[i],p[j]]=[p[j],p[i]];}
   return[...p,...p];
 }
 function grad(h,x,y){const u=h<4?x:y,v=h<4?y:x;return((h&1)?-u:u)+((h&2)?-v:v);}
+
 export class NoiseGen {
   constructor(s=42){this.perm=buildPerm(s);}
   noise2(x,y){
     const p=this.perm,X=Math.floor(x)&255,Y=Math.floor(y)&255;
     x-=Math.floor(x);y-=Math.floor(y);
     const u=fade(x),v=fade(y),a=p[X]+Y,b=p[X+1]+Y;
-    return lerp(lerp(grad(p[a],x,y),grad(p[b],x-1,y),u),lerp(grad(p[a+1],x,y-1),grad(p[b+1],x-1,y-1),u),v);
+    return lerp(lerp(grad(p[a],x,y),grad(p[b],x-1,y),u),lerp(lerp(grad(p[a+1],x,y-1),grad(p[b+1],x-1,y-1),u),v),0);
   }
   fractal(x,y,oct=6,per=0.5,lac=2){
     let val=0,amp=1,freq=1,max=0;
@@ -30,29 +29,7 @@ export class NoiseGen {
   }
 }
 
-export const TILE_SIZE = 16;
-
-// ——— Palettes biomes ————————————————————————————————
-const BIOME_COLORS_HEX = {
-  [BIOME.OCEAN]       :'0x1a4a8a',[BIOME.RIVER]       :'0x2a6abf',
-  [BIOME.LAKE]        :'0x1e5899',[BIOME.BEACH]       :'0xd4b96a',
-  [BIOME.PLAIN]       :'0x7ab05a',[BIOME.PRAIRIE]     :'0x8ec868',
-  [BIOME.FOREST]      :'0x2d6e2d',[BIOME.DENSE_FOREST]:'0x1a4e1a',
-  [BIOME.JUNGLE]      :'0x156015',[BIOME.SWAMP]       :'0x3a5a2a',
-  [BIOME.DESERT]      :'0xc8a850',[BIOME.SAVANNA]     :'0xa89030',
-  [BIOME.TUNDRA]      :'0x9ab0b8',[BIOME.TAIGA]       :'0x4a6e5a',
-  [BIOME.HILL]        :'0x6a7a5a',[BIOME.MOUNTAIN]    :'0x8a8878',
-  [BIOME.VOLCANO]     :'0xa03020',
-};
-// CSS pour minimap et fallback
-export const BIOME_COLORS_CSS = {
-  [BIOME.OCEAN]:'#1a4a8a',[BIOME.RIVER]:'#2a6abf',[BIOME.LAKE]:'#1e5899',
-  [BIOME.BEACH]:'#d4b96a',[BIOME.PLAIN]:'#7ab05a',[BIOME.PRAIRIE]:'#8ec868',
-  [BIOME.FOREST]:'#2d6e2d',[BIOME.DENSE_FOREST]:'#1a4e1a',[BIOME.JUNGLE]:'#156015',
-  [BIOME.SWAMP]:'#3a5a2a',[BIOME.DESERT]:'#c8a850',[BIOME.SAVANNA]:'#a89030',
-  [BIOME.TUNDRA]:'#9ab0b8',[BIOME.TAIGA]:'#4a6e5a',[BIOME.HILL]:'#6a7a5a',
-  [BIOME.MOUNTAIN]:'#8a8878',[BIOME.VOLCANO]:'#a03020',
-};
+export const TILE_SIZE = 32; // ← 32px avec textures PNG
 
 export class Tile {
   constructor(x,y,biome,noiseVal=0,elevation=0){
@@ -65,43 +42,56 @@ export class Tile {
     this.ore=Math.round(this.props.ore*60+Math.random()*20);
     this.water=this.props.water>0.5?100:Math.round(this.props.water*100);
     this.regenTimer=0;
-    this._texSeed=Math.random();
+    this._variant=Math.floor(Math.random()*4); // variant de texture
   }
   regen(dt){
     this.regenTimer+=dt;
     if(this.regenTimer>60){
       this.regenTimer=0;const p=this.props;
-      if(this.wood<p.wood*80)this.wood=Math.min(100,this.wood+1);
-      if(this.food<p.food*60)this.food=Math.min(100,this.food+1);
+      if(this.wood <p.wood *80)this.wood =Math.min(100,this.wood +1);
+      if(this.food <p.food *60)this.food =Math.min(100,this.food +1);
       if(this.stone<p.stone*80)this.stone=Math.min(100,this.stone+1);
     }
   }
   harvest(type,amount){const cur=this[type]||0,taken=Math.min(cur,amount);this[type]=cur-taken;return taken;}
 }
 
-// ——— PixiJS World Renderer ——————————————————————————
+// ——— Mapping biome → clé texture ——————————————————
+const BIOME_TEX = {
+  [BIOME.OCEAN]       :'terrain_ocean',
+  [BIOME.RIVER]       :'terrain_river',
+  [BIOME.LAKE]        :'terrain_lake',
+  [BIOME.BEACH]       :'terrain_beach',
+  [BIOME.PLAIN]       :'terrain_plain',
+  [BIOME.PRAIRIE]     :'terrain_prairie',
+  [BIOME.FOREST]      :'terrain_forest',
+  [BIOME.DENSE_FOREST]:'terrain_dense_forest',
+  [BIOME.JUNGLE]      :'terrain_jungle',
+  [BIOME.SWAMP]       :'terrain_swamp',
+  [BIOME.DESERT]      :'terrain_desert',
+  [BIOME.SAVANNA]     :'terrain_savanna',
+  [BIOME.TUNDRA]      :'terrain_tundra',
+  [BIOME.TAIGA]       :'terrain_taiga',
+  [BIOME.HILL]        :'terrain_hill',
+  [BIOME.MOUNTAIN]    :'terrain_mountain',
+  [BIOME.VOLCANO]     :'terrain_volcano',
+};
+
 export class World {
   constructor(cols=180,rows=120,seed=Date.now()){
     this.cols=cols;this.rows=rows;this.seed=seed;
     this.tiles=[];this._elevMap=[];
-    // PixiJS app & containers
-    this.pixiApp    = null;
-    this.mapContainer   = null;
-    this.entityContainer= null;
-    this.uiContainer    = null;
-    this.waterContainer = null;
-    this.weatherContainer=null;
-    this._waterSprites  = [];
-    this._weatherParts  = [];
-    this._weatherMode   = 'none';
-    this._filterDark    = null; // filtre nuit
-    // Fallback canvas 2D
-    this.offscreenCanvas= null;
-    this.offscreenCtx   = null;
-    this._mapDirty      = true;
-    this._pixiReady     = false;
+    this._offscreen=null;this._offCtx=null;
+    this._waterCanvas=null;this._waterCtx=null;
+    this._weatherCanvas=null;this._weatherCtx=null;
+    this._mapDirty=true;
+    this._weatherParticles=[];
+    this._weatherMode='none';
+    this._texturesReady=false;
+    this._tick=0;
     this._generate();
-    this._initPixi();
+    // Construire l'atlas puis la carte
+    this._initTextures();
   }
 
   _generate(){
@@ -116,9 +106,9 @@ export class World {
         const nx=(x/this.cols)*2-1,ny=(y/this.rows)*2-1;
         e=Math.max(0,e-Math.sqrt(nx*nx+ny*ny)**2*0.7);
         t=t*0.5+(1-y/this.rows)*0.5;
-        const d=(new NoiseGen(this.seed+3333).noise2(x/20,y/20)+1)/2;
         this._elevMap[y][x]=e;
-        this.tiles[y][x]=new Tile(x,y,getBiomeFromParams(e,m,t),d,e);
+        const nD=new NoiseGen(this.seed+3333).noise2(x/20,y/20);
+        this.tiles[y][x]=new Tile(x,y,getBiomeFromParams(e,m,t),(nD+1)/2,e);
       }
     }
     this._carveRivers(6);
@@ -142,324 +132,220 @@ export class World {
     }
   }
 
-  // ——— INIT PIXI ———————————————————————————————————
-  _initPixi(){
-    // Vérifier que PIXI est disponible
-    if(typeof window.PIXI === 'undefined'){
-      console.warn('[World] PIXI non chargé, fallback canvas 2D');
-      this._initFallback();
-      return;
-    }
-    const PIXI = window.PIXI;
-    const W    = this.cols*TILE_SIZE, H = this.rows*TILE_SIZE;
+  _initTextures(){
+    // Construire l'atlas de textures
+    atlas.build();
+    this._texturesReady=true;
 
-    // Créer l'application Pixi sur un canvas dédié (caché)
-    this._pixiCanvas = document.createElement('canvas');
-    this._pixiCanvas.width  = Math.min(W, 4096);
-    this._pixiCanvas.height = Math.min(H, 4096);
-    this._pixiCanvas.style.display = 'none';
-    document.body.appendChild(this._pixiCanvas);
-
-    try {
-      this.pixiApp = new PIXI.Application({
-        view:            this._pixiCanvas,
-        width:           this._pixiCanvas.width,
-        height:          this._pixiCanvas.height,
-        backgroundColor: 0x060809,
-        antialias:       false,
-        powerPreference: 'high-performance',
-      });
-
-      this.mapContainer    = new PIXI.Container();
-      this.waterContainer  = new PIXI.Container();
-      this.weatherContainer= new PIXI.Container();
-      this.entityContainer = new PIXI.Container();
-      this.pixiApp.stage.addChild(this.mapContainer);
-      this.pixiApp.stage.addChild(this.waterContainer);
-      this.pixiApp.stage.addChild(this.weatherContainer);
-      this.pixiApp.stage.addChild(this.entityContainer);
-
-      this._buildPixiMap();
-      this._buildWaterSprites();
-      this._pixiReady = true;
-      console.log('[World] PixiJS WebGL initialisé ✅');
-    } catch(e) {
-      console.warn('[World] PixiJS échoué, fallback:', e.message);
-      this._initFallback();
-    }
-  }
-
-  _initFallback(){
+    // Canvas de la carte
     const W=this.cols*TILE_SIZE,H=this.rows*TILE_SIZE;
-    this.offscreenCanvas=document.createElement('canvas');
-    this.offscreenCanvas.width=W;this.offscreenCanvas.height=H;
-    this.offscreenCtx=this.offscreenCanvas.getContext('2d');
-    this._redrawMapFallback();
+    this._offscreen=document.createElement('canvas');
+    this._offscreen.width=W;this._offscreen.height=H;
+    this._offCtx=this._offscreen.getContext('2d');
+
+    this._waterCanvas=document.createElement('canvas');
+    this._waterCanvas.width=W;this._waterCanvas.height=H;
+    this._waterCtx=this._waterCanvas.getContext('2d');
+
+    this._weatherCanvas=document.createElement('canvas');
+    this._weatherCanvas.width=W;this._weatherCanvas.height=H;
+    this._weatherCtx=this._weatherCanvas.getContext('2d');
+
+    this._redrawMap();
   }
 
-  // ——— CONSTRUCTION CARTE PIXI ————————————————————
-  _buildPixiMap(){
-    const PIXI = window.PIXI, TS = TILE_SIZE;
-    const gfx   = new PIXI.Graphics();
+  // ——— CARTE AVEC TEXTURES PIXEL ART ——————————————
+  _redrawMap(){
+    if(!this._texturesReady)return;
+    const ctx=this._offCtx,TS=TILE_SIZE;
 
     for(let y=0;y<this.rows;y++){
       for(let x=0;x<this.cols;x++){
-        const tile = this.tiles[y][x];
-        const col  = parseInt(BIOME_COLORS_HEX[tile.biome]||'0x7ab05a');
-
-        // Variation de couleur par bruit
-        const n    = tile.noiseVal;
-        let r      = (col>>16)&0xff,g=(col>>8)&0xff,b=col&0xff;
-        const vary = (n-0.5)*40;
-        r=Math.max(0,Math.min(255,r+vary));
-        g=Math.max(0,Math.min(255,g+vary));
-        b=Math.max(0,Math.min(255,b+vary));
-        const finalCol = (r<<16)|(g<<8)|b;
-
-        gfx.beginFill(finalCol);
-        gfx.drawRect(x*TS,y*TS,TS,TS);
-        gfx.endFill();
-
-        // Textures selon biome
-        this._pixiTileDetail(gfx, tile, x*TS, y*TS, TS);
+        const tile=this.tiles[y][x];
+        const px=x*TS,py=y*TS;
+        const texKey=BIOME_TEX[tile.biome]||'terrain_plain';
+        const texCanvas=atlas.canvases[texKey];
+        if(texCanvas){
+          // Dessiner la texture (tiled)
+          ctx.drawImage(texCanvas,px,py,TS,TS);
+        } else {
+          ctx.fillStyle=tile.props.color||'#7ab05a';
+          ctx.fillRect(px,py,TS,TS);
+        }
       }
     }
 
-    // Relief ombres
+    // Passe relief (ombres directionnelles)
     for(let y=1;y<this.rows-1;y++){
       for(let x=1;x<this.cols-1;x++){
-        const e=this._elevMap[y][x],eN=this._elevMap[y-1]?.[x]??e,eW=this._elevMap[y]?.[x-1]??e;
+        const e=this._elevMap[y][x];
+        const eN=this._elevMap[y-1]?.[x]??e,eW=this._elevMap[y]?.[x-1]??e;
         const slope=(e-eN)+(e-eW);
-        if(Math.abs(slope)>0.03){
-          const alpha=Math.min(slope>0?0.5:0.25,Math.abs(slope)*3);
-          const col=slope>0?0x000000:0xffffdd;
-          gfx.beginFill(col,alpha);
-          gfx.drawRect(x*TS,y*TS,TS,TS);
-          gfx.endFill();
+        if(Math.abs(slope)>0.025){
+          const a=slope>0?Math.min(0.5,slope*3.5):0;
+          const la=slope<0?Math.min(0.25,-slope*2.5):0;
+          if(a>0){ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(x*TS,y*TS,TS,TS);}
+          if(la>0){ctx.fillStyle=`rgba(255,255,230,${la})`;ctx.fillRect(x*TS,y*TS,TS,TS);}
         }
       }
     }
 
-    // Neige sommets
-    for(let y=0;y<this.rows;y++){
-      for(let x=0;x<this.cols;x++){
-        const e=this._elevMap[y]?.[x]||0;
-        if(e>0.85){
-          const alpha=Math.min(0.85,(e-0.85)/0.1*0.85);
-          gfx.beginFill(0xeef5ff,alpha);
-          gfx.drawRect(x*TS,y*TS,TS,TS);
-          gfx.endFill();
+    // Transitions entre biomes (dégradé sur 8px)
+    ctx.save();ctx.globalAlpha=0.45;
+    for(let y=0;y<this.rows-1;y++){
+      for(let x=0;x<this.cols-1;x++){
+        const t=this.tiles[y][x],tr=this.tiles[y][x+1],tb=this.tiles[y+1][x];
+        const px=x*TS,py=y*TS;
+        if(t.biome!==tr.biome){
+          const trTex=atlas.canvases[BIOME_TEX[tr.biome]||'terrain_plain'];
+          if(trTex){
+            const g=ctx.createLinearGradient(px+TS-8,py,px+TS+8,py);
+            g.addColorStop(0,'transparent');
+            ctx.drawImage(trTex,px+TS-4,py,8,TS);
+          }
+        }
+        if(t.biome!==tb.biome){
+          const tbTex=atlas.canvases[BIOME_TEX[tb.biome]||'terrain_plain'];
+          if(tbTex) ctx.drawImage(tbTex,px,py+TS-4,TS,8);
         }
       }
     }
+    ctx.restore();
 
-    this.mapContainer.addChild(gfx);
-
-    // Convertir en texture (une seule drawcall GPU)
-    const rt = PIXI.RenderTexture.create({width:this.cols*TS,height:this.rows*TS});
-    this.pixiApp.renderer.render(gfx,{renderTexture:rt});
-    this.mapContainer.removeChildren();
-    const sprite = new PIXI.Sprite(rt);
-    this.mapContainer.addChild(sprite);
-    this._mapTexture = rt;
+    this._mapDirty=false;
   }
 
-  _pixiTileDetail(gfx, tile, px, py, TS){
-    const s1=tile._texSeed;
-    const b=tile.biome;
-    if(b===BIOME.BEACH||b===BIOME.DESERT){
-      gfx.beginFill(0xfff0c0,0.12);
-      for(let i=0;i<5;i++) gfx.drawRect(px+(s1*TS+(i*37))%TS,py+(s1*TS+(i*53))%TS,1,1);
-      gfx.endFill();
-    } else if(b===BIOME.FOREST||b===BIOME.DENSE_FOREST||b===BIOME.TAIGA){
-      gfx.beginFill(0x002800,0.20);
-      for(let i=0;i<3;i++) gfx.drawCircle(px+(s1*TS+(i*59))%TS,py+(s1*TS+(i*43))%TS,2);
-      gfx.endFill();
-    } else if(b===BIOME.MOUNTAIN||b===BIOME.HILL){
-      gfx.lineStyle(0.5,0x3c3228,0.18);
-      gfx.moveTo(px+2,py+TS*0.4);gfx.lineTo(px+TS-2,py+TS*0.4);
-      gfx.moveTo(px+1,py+TS*0.7);gfx.lineTo(px+TS-1,py+TS*0.7);
-      gfx.lineStyle(0);
-    }
-  }
+  // ——— EAU ANIMÉE ——————————————————————————————————
+  _animateWater(time){
+    const ctx=this._waterCtx,TS=TILE_SIZE;
+    const W=this._waterCanvas.width,H=this._waterCanvas.height;
+    ctx.clearRect(0,0,W,H);
 
-  _buildWaterSprites(){
-    const PIXI = window.PIXI, TS = TILE_SIZE;
-    // Créer sprites animés pour l'eau
     for(let y=0;y<this.rows;y++){
       for(let x=0;x<this.cols;x++){
         const b=this.tiles[y][x].biome;
         if(b!==BIOME.OCEAN&&b!==BIOME.LAKE&&b!==BIOME.RIVER)continue;
-        const gfx = new PIXI.Graphics();
-        gfx.x=x*TS;gfx.y=y*TS;
-        gfx._wx=x;gfx._wy=y;gfx._biome=b;
-        this.waterContainer.addChild(gfx);
-        this._waterSprites.push(gfx);
+        const px=x*TS,py=y*TS;
+        const t1=Math.sin(time*0.002+x*0.3+y*0.2);
+        const t2=Math.cos(time*0.0015+x*0.25-y*0.3);
+        const wave=(t1+t2)*0.25+0.5;
+
+        if(b===BIOME.OCEAN||b===BIOME.LAKE){
+          ctx.fillStyle=`rgba(50,140,255,${0.08+wave*0.08})`;
+          ctx.fillRect(px,py,TS,TS);
+          if(wave>0.75){
+            ctx.fillStyle=`rgba(255,255,255,${(wave-0.75)*0.8})`;
+            ctx.fillRect(px+2,py+TS*0.3+t1*TS*0.15,TS-4,2);
+          }
+          const sparkle=Math.sin(time*0.008+x*1.7+y*2.3);
+          if(sparkle>0.9){
+            ctx.fillStyle=`rgba(255,255,255,${(sparkle-0.9)*5})`;
+            ctx.fillRect(px+Math.floor(wave*TS*0.4),py+4,3,3);
+          }
+        } else {
+          ctx.fillStyle=`rgba(80,170,255,${0.10+wave*0.10})`;
+          ctx.fillRect(px,py,TS,TS);
+          ctx.strokeStyle=`rgba(150,210,255,${0.15+wave*0.12})`;
+          ctx.lineWidth=1.5;
+          const off=(time*0.05)%TS;
+          ctx.beginPath();ctx.moveTo(px-off,py);ctx.lineTo(px+TS-off,py+TS);ctx.stroke();
+        }
       }
     }
   }
 
-  // ——— ANIMATION EAU PIXI —————————————————————————
-  _updateWaterPixi(time){
-    const PIXI = window.PIXI, TS = TILE_SIZE;
-    for(const gfx of this._waterSprites){
-      gfx.clear();
-      const x=gfx._wx,y=gfx._wy,b=gfx._biome;
-      const t1=Math.sin(time*0.002+x*0.3+y*0.2);
-      const wave=(t1+Math.cos(time*0.0015+x*0.25-y*0.3))*0.25+0.5;
-
-      if(b===BIOME.OCEAN||b===BIOME.LAKE){
-        gfx.beginFill(0x5096ff,0.07+wave*0.07);
-        gfx.drawRect(0,0,TS,TS);
-        gfx.endFill();
-        if(wave>0.78){
-          gfx.beginFill(0xffffff,(wave-0.78)*0.7);
-          gfx.drawRect(1,TS*0.3+t1*TS*0.15,TS-2,1.5);
-          gfx.endFill();
-        }
-        // Éclat lumineux
-        const sparkle=Math.sin(time*0.008+x*1.7+y*2.3);
-        if(sparkle>0.92){
-          gfx.beginFill(0xffffff,(sparkle-0.92)*4);
-          gfx.drawRect(Math.floor(wave*TS*0.5),2,2,2);
-          gfx.endFill();
-        }
-      } else {
-        gfx.beginFill(0x64b4ff,0.12+wave*0.10);
-        gfx.drawRect(0,0,TS,TS);
-        gfx.endFill();
-        gfx.lineStyle(1,0xb4dcff,0.15+wave*0.12);
-        const off=(time*0.05)%TS;
-        gfx.moveTo(-off,0);gfx.lineTo(TS-off,TS);
-        gfx.lineStyle(0);
-      }
-    }
-  }
-
-  // ——— MÉTÉO PIXI ——————————————————————————————————
+  // ——— MÉTÉO ——————————————————————————————————————
   setWeather(mode){
-    if(!this._pixiReady){return;}
-    const PIXI=window.PIXI;
     this._weatherMode=mode;
-    this.weatherContainer.removeChildren();
-    this._weatherParts=[];
+    this._weatherParticles=[];
     if(mode==='none')return;
-    const count=mode==='rain'?300:150;
+    const count=mode==='rain'?200:mode==='snow'?120:80;
     const W=this.cols*TILE_SIZE,H=this.rows*TILE_SIZE;
     for(let i=0;i<count;i++){
-      const gfx=new PIXI.Graphics();
-      const px=Math.random()*W,py=Math.random()*H;
-      gfx.x=px;gfx.y=py;
-      const part={
-        gfx,x:px,y:py,
+      this._weatherParticles.push({
+        x:Math.random()*W,y:Math.random()*H,
         vx:mode==='rain'?-1.5:mode==='snow'?(Math.random()-0.5)*0.5:(Math.random()-0.5)*0.8,
-        vy:mode==='rain'?6+Math.random()*3:mode==='snow'?0.5+Math.random()*0.8:0.3+Math.random()*0.5,
-        size:mode==='rain'?0.5:mode==='snow'?2:3+Math.random()*3,
-        alpha:mode==='rain'?0.4+Math.random()*0.3:0.6+Math.random()*0.4,
+        vy:mode==='rain'?8+Math.random()*4:mode==='snow'?0.6+Math.random()*0.8:0.4+Math.random()*0.6,
+        size:mode==='rain'?0.8:mode==='snow'?2.5:4+Math.random()*3,
+        alpha:mode==='rain'?0.5+Math.random()*0.3:0.7+Math.random()*0.3,
         rot:Math.random()*Math.PI*2,
-        color:mode==='leaves'?Math.floor(Math.random()*0xffffff)|0xff3000:0xffffff,
-      };
-      this._weatherParts.push(part);
-      this.weatherContainer.addChild(gfx);
+        color:mode==='leaves'?`hsl(${18+Math.random()*35},70%,42%)`:null,
+      });
     }
   }
 
-  _updateWeatherPixi(dt){
+  _updateWeather(dt){
     if(this._weatherMode==='none')return;
     const W=this.cols*TILE_SIZE,H=this.rows*TILE_SIZE;
-    for(const p of this._weatherParts){
-      p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=0.02*dt;
+    for(const p of this._weatherParticles){
+      p.x+=p.vx*dt;p.y+=p.vy*dt;
+      if(this._weatherMode!=='rain')p.rot+=0.02*dt;
       if(p.y>H)p.y=-10;if(p.x<-20)p.x=W+10;if(p.x>W+20)p.x=-10;
-      p.gfx.x=p.x;p.gfx.y=p.y;
-      p.gfx.clear();
+    }
+  }
+
+  _drawWeather(ctx,camX,camY,viewW,viewH){
+    if(this._weatherMode==='none')return;
+    for(const p of this._weatherParticles){
+      const sx=p.x-camX,sy=p.y-camY;
+      if(sx<-10||sx>viewW+10||sy<-10||sy>viewH+10)continue;
+      ctx.globalAlpha=p.alpha;
       if(this._weatherMode==='rain'){
-        p.gfx.lineStyle(p.size,0xb4d4ff,p.alpha);
-        p.gfx.moveTo(0,0);p.gfx.lineTo(p.vx*3,p.vy*3);
-        p.gfx.lineStyle(0);
+        ctx.strokeStyle='rgba(180,215,255,1)';ctx.lineWidth=p.size;
+        ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+p.vx*4,sy+p.vy*4);ctx.stroke();
       } else if(this._weatherMode==='snow'){
-        p.gfx.beginFill(0xf0f8ff,p.alpha);
-        p.gfx.drawCircle(0,0,p.size);
-        p.gfx.endFill();
-        // Cristal
-        p.gfx.lineStyle(0.5,0xdcebff,0.5);
+        ctx.fillStyle='rgba(240,248,255,1)';
+        ctx.beginPath();ctx.arc(sx,sy,p.size,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='rgba(220,238,255,0.6)';ctx.lineWidth=0.5;
         for(let i=0;i<3;i++){
           const a=p.rot+i*Math.PI/3;
-          p.gfx.moveTo(0,0);p.gfx.lineTo(Math.cos(a)*p.size*2,Math.sin(a)*p.size*2);
+          ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+Math.cos(a)*p.size*2,sy+Math.sin(a)*p.size*2);ctx.stroke();
         }
-        p.gfx.lineStyle(0);
       } else {
-        p.gfx.beginFill(p.color,p.alpha);
-        p.gfx.drawEllipse(0,0,p.size,p.size*0.5);
-        p.gfx.endFill();
+        ctx.save();ctx.translate(sx,sy);ctx.rotate(p.rot);
+        ctx.fillStyle=p.color;
+        ctx.beginPath();ctx.ellipse(0,0,p.size,p.size*0.5,0,0,Math.PI*2);ctx.fill();
+        ctx.restore();
       }
     }
+    ctx.globalAlpha=1.0;
   }
 
-  // ——— FILTRE NUIT PIXI ————————————————————————————
-  _updateNightFilter(nightAlpha){
-    if(!this._pixiReady||!window.PIXI)return;
-    const PIXI=window.PIXI;
-    if(!this._filterDark&&nightAlpha>0.01){
-      // ColorMatrixFilter pour assombrir
-      this._filterDark=new PIXI.ColorMatrixFilter();
-      this.pixiApp.stage.filters=[this._filterDark];
-    }
-    if(this._filterDark){
-      const brightness=Math.max(0.25,1-nightAlpha*0.75);
-      this._filterDark.brightness(brightness,false);
-      // Teinte bleue la nuit
-      const blue=nightAlpha*0.15;
-      this._filterDark.tint(0x8898ff,false);
-    }
+  _drawMorningMist(ctx,W,H,nightAlpha){
+    if(nightAlpha<0.05||nightAlpha>0.45)return;
+    const mistA=(0.25-Math.abs(nightAlpha-0.25))/0.25*0.15;
+    if(mistA<=0)return;
+    const g=ctx.createRadialGradient(W/2,H*0.6,0,W/2,H*0.6,Math.max(W,H)*0.7);
+    g.addColorStop(0,`rgba(210,225,255,${mistA})`);g.addColorStop(1,'rgba(210,225,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
 
-  // ——— RENDU PIXI VERS CANVAS PRINCIPAL ————————————
-  _renderPixiToCanvas(ctx,camX,camY,viewW,viewH,timestamp,nightAlpha){
-    const PIXI=window.PIXI;
-    // Positionner les containers selon la caméra
-    this.mapContainer.x      = -camX;
-    this.mapContainer.y      = -camY;
-    this.waterContainer.x    = -camX;
-    this.waterContainer.y    = -camY;
-    this.weatherContainer.x  = -camX;
-    this.weatherContainer.y  = -camY;
-
-    // Mise à jour eau et météo
-    this._updateWaterPixi(timestamp);
-    this._updateWeatherPixi(0.016*60);
-    this._updateNightFilter(nightAlpha);
-
-    // Rendre dans le canvas Pixi (GPU)
-    this.pixiApp.render();
-
-    // Copier le rendu Pixi dans le canvas principal
-    ctx.drawImage(this._pixiCanvas, 0, 0, viewW, viewH, 0, 0, viewW, viewH);
-  }
-
-  // ——— FALLBACK 2D ————————————————————————————————
-  _redrawMapFallback(){
-    const ctx=this.offscreenCtx,TS=TILE_SIZE;
-    for(let y=0;y<this.rows;y++){
-      for(let x=0;x<this.cols;x++){
-        const tile=this.tiles[y][x];
-        const col=BIOME_COLORS_CSS[tile.biome]||'#7ab05a';
-        ctx.fillStyle=col;ctx.fillRect(x*TS,y*TS,TS,TS);
-      }
-    }
-    this._mapDirty=false;
-  }
-
-  // ——— API PUBLIQUE (identique original) ————————————
   update(dt){
+    this._tick+=dt;
+    this._updateWeather(dt);
     for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)this.tiles[y][x].regen(dt);
   }
 
   draw(ctx,camX,camY,viewW,viewH,timestamp=0,nightAlpha=0){
-    if(this._pixiReady){
-      this._renderPixiToCanvas(ctx,camX,camY,viewW,viewH,timestamp,nightAlpha);
-    } else {
-      if(this._mapDirty)this._redrawMapFallback();
-      if(this.offscreenCanvas)ctx.drawImage(this.offscreenCanvas,camX,camY,viewW,viewH,0,0,viewW,viewH);
+    if(this._mapDirty)this._redrawMap();
+    if(!this._offscreen)return;
+    ctx.drawImage(this._offscreen,camX,camY,viewW,viewH,0,0,viewW,viewH);
+    this._animateWater(timestamp);
+    ctx.drawImage(this._waterCanvas,camX,camY,viewW,viewH,0,0,viewW,viewH);
+    this._drawWeather(ctx,camX,camY,viewW,viewH);
+    this._drawMorningMist(ctx,viewW,viewH,nightAlpha);
+    // Overlay nuit
+    if(nightAlpha>0.01){
+      const g=ctx.createRadialGradient(viewW/2,viewH/2,0,viewW/2,viewH/2,Math.max(viewW,viewH)*0.8);
+      g.addColorStop(0,`rgba(0,5,20,${nightAlpha*0.45})`);g.addColorStop(1,`rgba(0,5,30,${nightAlpha*0.8})`);
+      ctx.fillStyle=g;ctx.fillRect(0,0,viewW,viewH);
+      if(nightAlpha>0.5){
+        ctx.fillStyle=`rgba(255,255,255,${(nightAlpha-0.5)*0.5})`;
+        for(let i=0;i<60;i++){
+          const sx=((i*137.5)%viewW),sy=((i*97.3)%(viewH*0.55));
+          ctx.beginPath();ctx.arc(sx,sy,i%3===0?1.2:0.7,0,Math.PI*2);ctx.fill();
+        }
+      }
     }
   }
 
@@ -479,12 +365,12 @@ export class World {
     return null;
   }
   getStats(){
-    let totalWood=0,totalFood=0,totalStone=0,totalOre=0,w=0,l=0;
+    let tW=0,tF=0,tS=0,tO=0,wt=0,lt=0;
     for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){
-      const t=this.tiles[y][x];totalWood+=t.wood;totalFood+=t.food;totalStone+=t.stone;totalOre+=t.ore;
-      if([BIOME.OCEAN,BIOME.LAKE,BIOME.RIVER].includes(t.biome))w++;else l++;
+      const t=this.tiles[y][x];tW+=t.wood;tF+=t.food;tS+=t.stone;tO+=t.ore;
+      if([BIOME.OCEAN,BIOME.LAKE,BIOME.RIVER].includes(t.biome))wt++;else lt++;
     }
-    return{totalWood,totalFood,totalStone,totalOre,waterTiles:w,landTiles:l};
+    return{totalWood:tW,totalFood:tF,totalStone:tS,totalOre:tO,waterTiles:wt,landTiles:lt};
   }
   toJSON(){return{cols:this.cols,rows:this.rows,seed:this.seed};}
 }
