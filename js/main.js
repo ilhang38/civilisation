@@ -460,13 +460,6 @@ class CivilSim {
     }
 
     this.seasonSys?.update(dt, this.settlements, this.world);
-    // Synchroniser météo visuelle avec saison
-    if (this.seasonSys && this.world) {
-      const s = this.seasonSys.season;
-      const mode = s==='winter'?'snow':s==='autumn'?'leaves':s==='summer'&&Math.random()<0.0001?'rain':'none';
-      if (mode !== 'none' && this.world._weatherMode !== mode) this.world.setWeather(mode);
-      if (s==='spring' && Math.random()<0.00005) this.world.setWeather('rain');
-    }
     this.diplomacy?.update(dt, this.settlements, this.world, this.seasonSys);
     this.particles?.update(dt);
     this.particles?.updateSettlements(this.settlements, dt);
@@ -517,8 +510,7 @@ class CivilSim {
     const vW   = W / this.zoom;
     const vH   = H / this.zoom;
 
-    const nightAlpha = this.seasonSys?.nightAlpha || 0;
-    this.world.draw(ctx, camX, camY, vW, vH, timestamp, nightAlpha);
+    this.world.draw(ctx, camX, camY, vW, vH, timestamp);
     this.plantMgr.draw(ctx, camX, camY, vW, vH, timestamp);
     this.animalMgr.draw(ctx, camX, camY, vW, vH);
 
@@ -534,7 +526,7 @@ class CivilSim {
     for (const s of this.settlements) {
       const sx = s.x - camX, sy = s.y - camY;
       if (sx < -200 || sx > vW + 200 || sy < -200 || sy > vH + 200) continue;
-s._nightAlpha = this.seasonSys?.nightAlpha || 0;
+      s._nightAlpha = this.seasonSys?.nightAlpha || 0;
       s.draw(ctx, camX, camY);
     }
 

@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Civilisation — World Simulator v2</title>
+  <title>Civilisation — WebGL Edition v2</title>
   <link rel="stylesheet" href="style.css"/>
+  <!-- PixiJS v7 WebGL -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"
+          crossorigin="anonymous"></script>
 </head>
 <body>
   <header id="topbar">
@@ -13,6 +16,7 @@
       <span class="logo">CIVILISATION</span>
       <span id="world-date">Année 1 · Jour 1</span>
       <span id="season-badge">🌸 Printemps</span>
+      <span id="renderer-badge">⚡ WebGL</span>
     </div>
     <div id="speed-controls">
       <button id="btn-pause" class="ctrl-btn active">⏸</button>
@@ -23,10 +27,10 @@
       <button id="btn-reset" class="ctrl-btn danger">↺</button>
     </div>
     <div id="map-controls">
-      <button id="btn-terr"  class="ctrl-btn" title="Territoires [T]">🗺 Terr.</button>
-      <button id="btn-heat-p" class="ctrl-btn" title="Heatmap Pop [H]">🔵 Pop</button>
-      <button id="btn-heat-w" class="ctrl-btn" title="Heatmap Richesse [W]">🟡 Rich.</button>
-      <button id="btn-heat-m" class="ctrl-btn" title="Heatmap Militaire [M]">🔴 Mil.</button>
+      <button id="btn-terr"   class="ctrl-btn" title="[T]">🗺 Terr.</button>
+      <button id="btn-heat-p" class="ctrl-btn" title="[H]">🔵 Pop</button>
+      <button id="btn-heat-w" class="ctrl-btn" title="[W]">🟡 Rich.</button>
+      <button id="btn-heat-m" class="ctrl-btn" title="[M]">🔴 Mil.</button>
     </div>
     <div id="save-controls">
       <button id="btn-save"   class="ctrl-btn">💾</button>
@@ -37,9 +41,8 @@
   </header>
 
   <div id="app-layout">
-    <!-- PANNEAU GAUCHE : monde, écosystème, guerres, diplo, classement -->
     <aside id="left-panel">
-      <div class="panel-section collapsible" id="sec-world">
+      <div class="panel-section collapsible">
         <h3 class="section-title toggle-btn" data-target="world-stats">🌍 Monde ▾</h3>
         <div id="world-stats"></div>
       </div>
@@ -69,23 +72,19 @@
       </div>
     </aside>
 
-    <!-- CANVAS -->
     <main id="canvas-area">
       <canvas id="main-canvas"></canvas>
-      <div id="fps-overlay">FPS: -- | Entités: --</div>
+      <div id="fps-overlay">FPS: -- | Entités: -- | ⚡ WebGL</div>
       <div id="tooltip" class="hidden"></div>
       <canvas id="minimap-canvas" width="180" height="120"></canvas>
-      <div id="hotkeys-hint">H=Pop · W=Rich · M=Mil · T=Terr</div>
+      <div id="hotkeys-hint">H=Pop · W=Rich · M=Mil · T=Terr · R=Pluie · S=Neige</div>
     </main>
 
-    <!-- PANNEAU DROIT : sélection, villes, techs, journal, succès -->
     <aside id="right-panel">
-      <!-- Barre de recherche -->
       <div class="panel-section" id="search-bar">
         <input id="search-input" type="text" placeholder="🔍 Rechercher ville / personnage..." class="search-input"/>
         <div id="search-results"></div>
       </div>
-
       <div class="panel-section collapsible">
         <h3 class="section-title toggle-btn" data-target="selection-info">🔍 Sélection ▾</h3>
         <div id="selection-info"><p class="muted">Cliquez sur une entité</p></div>
@@ -109,81 +108,62 @@
     </aside>
   </div>
 
-  <!-- BOTTOM : graphiques + ressources -->
   <footer id="bottom-panel">
-    <div class="graph-block">
-      <canvas id="graph-population" width="180" height="70"></canvas>
-      <span class="graph-label">Population</span>
-    </div>
-    <div class="graph-block">
-      <canvas id="graph-food" width="180" height="70"></canvas>
-      <span class="graph-label">Nourriture</span>
-    </div>
-    <div class="graph-block">
-      <canvas id="graph-animals" width="180" height="70"></canvas>
-      <span class="graph-label">Animaux</span>
-    </div>
-    <div class="graph-block">
-      <canvas id="graph-cities" width="180" height="70"></canvas>
-      <span class="graph-label">Colonies</span>
-    </div>
-    <div class="graph-block">
-      <canvas id="graph-resources" width="180" height="70"></canvas>
-      <span class="graph-label">Ressources</span>
-    </div>
+    <div class="graph-block"><canvas id="graph-population" width="180" height="70"></canvas><span class="graph-label">Population</span></div>
+    <div class="graph-block"><canvas id="graph-food"       width="180" height="70"></canvas><span class="graph-label">Nourriture</span></div>
+    <div class="graph-block"><canvas id="graph-animals"    width="180" height="70"></canvas><span class="graph-label">Animaux</span></div>
+    <div class="graph-block"><canvas id="graph-cities"     width="180" height="70"></canvas><span class="graph-label">Colonies</span></div>
+    <div class="graph-block"><canvas id="graph-resources"  width="180" height="70"></canvas><span class="graph-label">Ressources</span></div>
     <div id="resource-bar">
-      <span id="res-food">🍖 --</span>
-      <span id="res-wood">🪵 --</span>
-      <span id="res-stone">🪨 --</span>
-      <span id="res-ore">⛏ --</span>
+      <span id="res-food">🍖 --</span><span id="res-wood">🪵 --</span>
+      <span id="res-stone">🪨 --</span><span id="res-ore">⛏ --</span>
       <span id="res-gold">💰 --</span>
     </div>
   </footer>
 
   <script type="module" src="js/main.js"></script>
   <script>
-    // Panneaux repliables
     document.addEventListener('DOMContentLoaded', () => {
+      // Panneaux repliables
       document.querySelectorAll('.toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          const target = document.getElementById(btn.dataset.target);
-          if (!target) return;
-          const collapsed = target.style.display === 'none';
-          target.style.display = collapsed ? '' : 'none';
-          btn.textContent = btn.textContent.replace(collapsed ? '▸' : '▾', collapsed ? '▾' : '▸');
+          const t = document.getElementById(btn.dataset.target);
+          if(!t) return;
+          const c = t.style.display === 'none';
+          t.style.display = c ? '' : 'none';
+          btn.textContent = btn.textContent.replace(c?'▸':'▾', c?'▾':'▸');
         });
       });
-
       // Recherche
-      const input = document.getElementById('search-input');
-      const results = document.getElementById('search-results');
-      if (input) {
-        input.addEventListener('input', () => {
-          const q = input.value.toLowerCase().trim();
-          if (!q || !window.sim) { results.innerHTML=''; return; }
-          const matches = [];
-          for (const s of window.sim.settlements) {
-            if (s.name.toLowerCase().includes(q))
-              matches.push({ label:`🏙 ${s.name} (${s.level})`, action:()=>{ window.sim.camera.targetX=s.x-300; window.sim.camera.targetY=s.y-200; } });
-            for (const h of s.humans) {
-              if (h.name.toLowerCase().includes(q))
-                matches.push({ label:`👤 ${h.name} — ${s.name}`, action:()=>{ window.sim.camera.targetX=h.x-300; window.sim.camera.targetY=h.y-200; } });
-            }
-          }
-          results.innerHTML = matches.slice(0,8).map((m,i)=>
-            `<div class="search-result" data-idx="${i}">${m.label}</div>`
-          ).join('');
-          results.querySelectorAll('.search-result').forEach((el,i) => {
-            el.addEventListener('click', () => { matches[i].action(); results.innerHTML=''; input.value=''; });
-          });
-        });
-      }
-
-      // Boutons heatmap dans topbar
-      document.getElementById('btn-terr')?.addEventListener('click', () => window.sim?._showTerr = !window.sim._showTerr);
-      document.getElementById('btn-heat-p')?.addEventListener('click', () => window.sim?.heatmap?.toggle('population'));
-      document.getElementById('btn-heat-w')?.addEventListener('click', () => window.sim?.heatmap?.toggle('wealth'));
-      document.getElementById('btn-heat-m')?.addEventListener('click', () => window.sim?.heatmap?.toggle('military'));
+      const inp = document.getElementById('search-input');
+      const res = document.getElementById('search-results');
+      if(inp) inp.addEventListener('input', () => {
+        const q = inp.value.toLowerCase().trim();
+        if(!q||!window.sim){res.innerHTML='';return;}
+        const matches=[];
+        for(const s of window.sim.settlements){
+          if(s.name.toLowerCase().includes(q))
+            matches.push({label:`🏙 ${s.name}`,action:()=>{window.sim.camera.targetX=s.x-300;window.sim.camera.targetY=s.y-200;}});
+          for(const h of s.humans)
+            if(h.name.toLowerCase().includes(q))
+              matches.push({label:`👤 ${h.name} — ${s.name}`,action:()=>{window.sim.camera.targetX=h.x-300;window.sim.camera.targetY=h.y-200;}});
+        }
+        res.innerHTML=matches.slice(0,8).map((m,i)=>`<div class="search-result" data-idx="${i}">${m.label}</div>`).join('');
+        res.querySelectorAll('.search-result').forEach((el,i)=>el.addEventListener('click',()=>{matches[i].action();res.innerHTML='';inp.value='';}));
+      });
+      // Boutons carte
+      document.getElementById('btn-terr')  ?.addEventListener('click',()=>window.sim&&(window.sim._showTerr=!window.sim._showTerr));
+      document.getElementById('btn-heat-p')?.addEventListener('click',()=>window.sim?.heatmap?.toggle('population'));
+      document.getElementById('btn-heat-w')?.addEventListener('click',()=>window.sim?.heatmap?.toggle('wealth'));
+      document.getElementById('btn-heat-m')?.addEventListener('click',()=>window.sim?.heatmap?.toggle('military'));
+      // Badge renderer
+      setTimeout(()=>{
+        const badge=document.getElementById('renderer-badge');
+        if(badge&&window.sim?.world?._pixiReady===false){
+          badge.textContent='🖼 Canvas 2D';
+          badge.style.color='#ff8844';
+        }
+      },3000);
     });
   </script>
 </body>
