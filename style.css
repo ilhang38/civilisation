@@ -414,3 +414,105 @@ aside {
 }
 .objective.done { color: var(--accent3); background: rgba(68,232,154,0.08); }
 .objective.todo { color: var(--text-dim); }
+/* =========================
+   TABLETTE
+   ========================= */
+@media (max-width: 1200px) {
+  :root {
+    --panel-w: 220px;
+  }
+
+  .graph-block canvas {
+    width: 140px;
+    height: 55px;
+  }
+}
+
+/* =========================
+   MOBILE
+   ========================= */
+@media (max-width: 900px) {
+
+  html,
+  body {
+    overflow: auto;
+  }
+
+  #app-layout {
+    flex-direction: column;
+    position: relative;
+    top: var(--topbar-h);
+    bottom: auto;
+  }
+
+  #left-panel,
+  #right-panel {
+    width: 100%;
+    max-height: 250px;
+    border: none;
+  }
+
+  #canvas-area {
+    min-height: 400px;
+    height: 50vh;
+  }
+
+  #bottom-panel {
+    position: relative;
+    height: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .graph-block {
+    width: calc(50% - 10px);
+  }
+
+  .graph-block canvas {
+    width: 100%;
+    height: auto;
+  }
+
+  #resource-bar {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================
+   PETIT TELEPHONE
+   ========================= */
+@media (max-width: 600px) {
+
+  #topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px;
+  }
+
+  .logo {
+    font-size: 14px;
+  }
+
+  #speed-controls,
+  #save-controls {
+    flex-wrap: wrap;
+  }
+
+  .ctrl-btn {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .graph-block {
+    width: 100%;
+  }
+
+  #world-date,
+  #season-badge {
+    display: none;
+  }
+}
+
