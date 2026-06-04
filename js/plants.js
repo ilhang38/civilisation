@@ -19,7 +19,7 @@ export const PLANT_TYPE = {
 const PLANT_CONFIG = {
   [PLANT_TYPE.GRASS]:    { colors:['#5a9a3a','#6aaa45','#4a8a2a'], size:2.5, foodYield:8,  woodYield:0,  lifespan:600, spreadRate:0.08, favoredBiomes:[BIOME.PRAIRIE,BIOME.PLAIN,BIOME.SAVANNA] },
   [PLANT_TYPE.BERRY]:    { colors:['#c03a6a','#d84a7a','#a02555'], size:4,   foodYield:20, woodYield:0,  lifespan:900, spreadRate:0.05, favoredBiomes:[BIOME.FOREST,BIOME.PRAIRIE,BIOME.PLAIN] },
-  [PLANT_TYPE.TREE]:     { colors:['#2a6a2a','#357535','#1e5020'], size:6,   foodYield:5,  woodYield:25, lifespan:2000, spreadRate:0.04, favoredBiomes:[BIOME.FOREST,BIOME.DENSE_FOREST,BIOME.TAIGA,BIOME.PLAIN] },
+  [PLANT_TYPE.TREE]:     { colors:['#2a6a2a','#357535','#1e5020'], size:9,   foodYield:5,  woodYield:25, lifespan:2000, spreadRate:0.04, favoredBiomes:[BIOME.FOREST,BIOME.DENSE_FOREST,BIOME.TAIGA,BIOME.PLAIN] },
   [PLANT_TYPE.MUSHROOM]: { colors:['#c87028','#d88038','#a85818'], size:2.5, foodYield:12, woodYield:0,  lifespan:400, spreadRate:0.07, favoredBiomes:[BIOME.FOREST,BIOME.SWAMP,BIOME.DENSE_FOREST] },
   [PLANT_TYPE.CACTUS]:   { colors:['#4a8a40','#5a9a4e','#38703a'], size:4,   foodYield:6,  woodYield:3,  lifespan:600, spreadRate:0.01, favoredBiomes:[BIOME.DESERT,BIOME.SAVANNA] },
   [PLANT_TYPE.REED]:     { colors:['#7a9a3a','#8aaa48','#6a8a2e'], size:3.5, foodYield:7,  woodYield:8,  lifespan:700, spreadRate:0.09, favoredBiomes:[BIOME.SWAMP,BIOME.RIVER] },
@@ -188,6 +188,22 @@ export class Plant {
       // Épi
       ctx.fillStyle = '#8a6030';
       ctx.beginPath(); ctx.ellipse(sx + ox + sway*0.5, sy - sz*1.1, sz*0.15, sz*0.4, 0, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  drawNightGlow(ctx, sx, sy, timestamp) {
+    // Lucioles la nuit autour des arbres
+    for (let i = 0; i < 3; i++) {
+      const angle = timestamp * 0.001 * (i+1) + i * 2.1;
+      const dist  = 8 + Math.sin(timestamp * 0.002 + i) * 4;
+      const fx    = sx + Math.cos(angle) * dist;
+      const fy    = sy + Math.sin(angle) * dist;
+      const alpha = (Math.sin(timestamp * 0.003 + i * 1.5) * 0.5 + 0.5) * 0.7;
+      ctx.fillStyle = `rgba(200,255,100,${alpha})`;
+      ctx.shadowColor = 'rgba(180,255,80,0.8)';
+      ctx.shadowBlur  = 4;
+      ctx.beginPath(); ctx.arc(fx, fy, 1.2, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur  = 0;
     }
   }
 

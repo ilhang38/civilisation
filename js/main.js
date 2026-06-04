@@ -460,6 +460,13 @@ class CivilSim {
     }
 
     this.seasonSys?.update(dt, this.settlements, this.world);
+    // Synchroniser météo visuelle avec saison
+    if (this.seasonSys && this.world) {
+      const s = this.seasonSys.season;
+      const mode = s==='winter'?'snow':s==='autumn'?'leaves':s==='summer'&&Math.random()<0.0001?'rain':'none';
+      if (mode !== 'none' && this.world._weatherMode !== mode) this.world.setWeather(mode);
+      if (s==='spring' && Math.random()<0.00005) this.world.setWeather('rain');
+    }
     this.diplomacy?.update(dt, this.settlements, this.world, this.seasonSys);
     this.particles?.update(dt);
     this.particles?.updateSettlements(this.settlements, dt);
@@ -510,7 +517,8 @@ class CivilSim {
     const vW   = W / this.zoom;
     const vH   = H / this.zoom;
 
-    this.world.draw(ctx, camX, camY, vW, vH, timestamp);
+    const nightAlpha = this.seasonSys?.nightAlpha || 0;
+    this.world.draw(ctx, camX, camY, vW, vH, timestamp, nightAlpha);
     this.plantMgr.draw(ctx, camX, camY, vW, vH, timestamp);
     this.animalMgr.draw(ctx, camX, camY, vW, vH);
 
@@ -526,6 +534,7 @@ class CivilSim {
     for (const s of this.settlements) {
       const sx = s.x - camX, sy = s.y - camY;
       if (sx < -200 || sx > vW + 200 || sy < -200 || sy > vH + 200) continue;
+s._nightAlpha = this.seasonSys?.nightAlpha || 0;
       s.draw(ctx, camX, camY);
     }
 
@@ -690,6 +699,9 @@ class CivilSim {
     };
     window.addEventListener('keydown', e => {
       if (e.key==='h'||e.key==='H') this.heatmap?.toggle('population');
+      if (e.key==='r'||e.key==='R') this.world?.setWeather('rain');
+      if (e.key==='s'||e.key==='S') this.world?.setWeather('snow');
+      if (e.key==='c'||e.key==='C') this.world?.setWeather('none');
       if (e.key==='w'||e.key==='W') this.heatmap?.toggle('wealth');
       if (e.key==='m'||e.key==='M') this.heatmap?.toggle('military');
       if (e.key==='t'||e.key==='T') this._showTerr = !this._showTerr;
