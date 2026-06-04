@@ -53,8 +53,8 @@ export class Animal {
   update(dt, animals, plantMgr) {
     if (!this.alive) return null;
     this.age += dt;
-    this.hunger += dt * 0.02;
-    this.thirst += dt * 0.025;
+    this.hunger += dt * 0.008;
+    this.thirst += dt * 0.010;
     this.breedTimer  -= dt;
     this.attackTimer  = Math.max(0, this.attackTimer - dt);
     this._eatCooldown = Math.max(0, this._eatCooldown - dt);
@@ -63,13 +63,13 @@ export class Animal {
     if (this.hunger > 100 || this.thirst > 100) { this.alive = false; return null; }
     const maxAge = this.config.isHerbivore ? 2400 : 3000;
     if (this.age > maxAge) { this.alive = false; return null; }
-    if (this.hunger > 85) this.hp -= dt * 0.03;
+    if (this.hunger > 92) this.hp -= dt * 0.01;
     if (this.hp <= 0) { this.alive = false; return null; }
 
     const tile = this.world.tileAt(this.x, this.y);
-    if (tile && tile.props.water > 0.4) this.thirst = Math.max(0, this.thirst - dt * 4);
-    if (tile && tile.props.fertility > 0.3 && this.config.isHerbivore && this._eatCooldown <= 0) {
-      this.hunger = Math.max(0, this.hunger - dt * 1.5);
+    if (tile && tile.props.water > 0.3) this.thirst = Math.max(0, this.thirst - dt * 8);
+    if (tile && tile.props.fertility > 0.2 && this.config.isHerbivore && this._eatCooldown <= 0) {
+      this.hunger = Math.max(0, this.hunger - dt * 3.0);
     }
 
     const spd = this.config.speed * (tile ? tile.props.speed : 1.0);
@@ -99,11 +99,11 @@ export class Animal {
     this._moveTo(this.targetX, this.targetY, fleeSpd);
     if (this.hunger > 20 && this.state === STATE.EAT && this._eatCooldown <= 0) {
       const harvest = plantMgr?.harvestNearest(this.x, this.y, 18);
-      if (harvest && harvest.food > 0) { this.hunger = Math.max(0, this.hunger - harvest.food * 2.5); this._eatCooldown = 20; }
+      if (harvest && harvest.food > 0) { this.hunger = Math.max(0, this.hunger - harvest.food * 4.0); this._eatCooldown = 15; }
     }
     if (this.breedTimer < 0 && this.hunger < 55 && this.thirst < 55) {
-      this.breedTimer = 200 + Math.random() * 200;
-      if (Math.random() < 0.006) return this._breed();
+      this.breedTimer = 120 + Math.random() * 150;
+      if (Math.random() < 0.012) return this._breed();
     }
     return null;
   }
@@ -445,7 +445,7 @@ export class Animal {
 
 // ——— AnimalManager ——————————————————————————————————————
 export class AnimalManager {
-  constructor(world, maxAnimals = 300) {
+  constructor(world, maxAnimals = 400) {
     this.world = world; this.maxAnimals = maxAnimals;
     this.animals = []; this._respawnTimer = 0;
     this._seed();
@@ -453,8 +453,8 @@ export class AnimalManager {
   _seed() {
     const herbi = Object.values(ANIMAL_TYPE).filter(t => ANIMAL_CONFIG[t].isHerbivore);
     const preda = Object.values(ANIMAL_TYPE).filter(t => !ANIMAL_CONFIG[t].isHerbivore);
-    for (let i = 0; i < 120; i++) this._spawnRandom(herbi[Math.floor(Math.random() * herbi.length)]);
-    for (let i = 0; i < 10;  i++) this._spawnRandom(preda[Math.floor(Math.random() * preda.length)]);
+    for (let i = 0; i < 160; i++) this._spawnRandom(herbi[Math.floor(Math.random() * herbi.length)]);
+    for (let i = 0; i < 8;   i++) this._spawnRandom(preda[Math.floor(Math.random() * preda.length)]);
   }
   _spawnRandom(type) {
     const cfg = ANIMAL_CONFIG[type];
@@ -486,9 +486,9 @@ export class AnimalManager {
       const preda = Object.values(ANIMAL_TYPE).filter(t => !ANIMAL_CONFIG[t].isHerbivore);
       const th = this.animals.filter(a => a.config.isHerbivore).length;
       const tp = this.animals.filter(a => !a.config.isHerbivore).length;
-      if (th < 40) for (let i=0;i<3;i++) this._spawnRandom(herbi[Math.floor(Math.random()*herbi.length)]);
+      if (th < 80) for (let i=0;i<5;i++) this._spawnRandom(herbi[Math.floor(Math.random()*herbi.length)]);
       if (tp < 5)  this._spawnRandom(preda[Math.floor(Math.random()*preda.length)]);
-      if (Math.random() < 0.15 && this.animals.length < this.maxAnimals)
+      if (Math.random() < 0.30 && this.animals.length < this.maxAnimals)
         this._spawnRandom(herbi[Math.floor(Math.random()*herbi.length)]);
     }
   }

@@ -17,12 +17,12 @@ export const PLANT_TYPE = {
 };
 
 const PLANT_CONFIG = {
-  [PLANT_TYPE.GRASS]:    { colors:['#5a9a3a','#6aaa45','#4a8a2a'], size:2.5, foodYield:5,  woodYield:0,  lifespan:200, spreadRate:0.05, favoredBiomes:[BIOME.PRAIRIE,BIOME.PLAIN,BIOME.SAVANNA] },
-  [PLANT_TYPE.BERRY]:    { colors:['#c03a6a','#d84a7a','#a02555'], size:4,   foodYield:15, woodYield:0,  lifespan:400, spreadRate:0.03, favoredBiomes:[BIOME.FOREST,BIOME.PRAIRIE,BIOME.PLAIN] },
-  [PLANT_TYPE.TREE]:     { colors:['#2a6a2a','#357535','#1e5020'], size:6,   foodYield:3,  woodYield:20, lifespan:800, spreadRate:0.02, favoredBiomes:[BIOME.FOREST,BIOME.DENSE_FOREST,BIOME.TAIGA,BIOME.PLAIN] },
-  [PLANT_TYPE.MUSHROOM]: { colors:['#c87028','#d88038','#a85818'], size:2.5, foodYield:8,  woodYield:0,  lifespan:150, spreadRate:0.04, favoredBiomes:[BIOME.FOREST,BIOME.SWAMP,BIOME.DENSE_FOREST] },
+  [PLANT_TYPE.GRASS]:    { colors:['#5a9a3a','#6aaa45','#4a8a2a'], size:2.5, foodYield:8,  woodYield:0,  lifespan:600, spreadRate:0.08, favoredBiomes:[BIOME.PRAIRIE,BIOME.PLAIN,BIOME.SAVANNA] },
+  [PLANT_TYPE.BERRY]:    { colors:['#c03a6a','#d84a7a','#a02555'], size:4,   foodYield:20, woodYield:0,  lifespan:900, spreadRate:0.05, favoredBiomes:[BIOME.FOREST,BIOME.PRAIRIE,BIOME.PLAIN] },
+  [PLANT_TYPE.TREE]:     { colors:['#2a6a2a','#357535','#1e5020'], size:6,   foodYield:5,  woodYield:25, lifespan:2000, spreadRate:0.04, favoredBiomes:[BIOME.FOREST,BIOME.DENSE_FOREST,BIOME.TAIGA,BIOME.PLAIN] },
+  [PLANT_TYPE.MUSHROOM]: { colors:['#c87028','#d88038','#a85818'], size:2.5, foodYield:12, woodYield:0,  lifespan:400, spreadRate:0.07, favoredBiomes:[BIOME.FOREST,BIOME.SWAMP,BIOME.DENSE_FOREST] },
   [PLANT_TYPE.CACTUS]:   { colors:['#4a8a40','#5a9a4e','#38703a'], size:4,   foodYield:6,  woodYield:3,  lifespan:600, spreadRate:0.01, favoredBiomes:[BIOME.DESERT,BIOME.SAVANNA] },
-  [PLANT_TYPE.REED]:     { colors:['#7a9a3a','#8aaa48','#6a8a2e'], size:3.5, foodYield:4,  woodYield:5,  lifespan:300, spreadRate:0.06, favoredBiomes:[BIOME.SWAMP,BIOME.RIVER] },
+  [PLANT_TYPE.REED]:     { colors:['#7a9a3a','#8aaa48','#6a8a2e'], size:3.5, foodYield:7,  woodYield:8,  lifespan:700, spreadRate:0.09, favoredBiomes:[BIOME.SWAMP,BIOME.RIVER] },
 };
 
 let _nextPlantId = 0;
@@ -48,10 +48,10 @@ export class Plant {
   update(dt, plants, maxPlants) {
     if (!this.alive) return null;
     this.age += dt;
-    if (!this.mature && this.age > 30) this.mature = true;
+    if (!this.mature && this.age > 15) this.mature = true;
     if (this.age > this.config.lifespan) { this.alive = false; return null; }
     this.spreadTimer += dt;
-    if (this.spreadTimer > 80 && this.mature && plants.length < maxPlants) {
+    if (this.spreadTimer > 40 && this.mature && plants.length < maxPlants) {
       this.spreadTimer = 0;
       if (Math.random() < this.config.spreadRate) return this._trySpread(plants);
     }
@@ -210,7 +210,7 @@ export class Plant {
 
 // ——— PlantManager ———————————————————————————————————————
 export class PlantManager {
-  constructor(world, maxPlants = 800) {
+  constructor(world, maxPlants = 1200) {
     this.world     = world;
     this.maxPlants = maxPlants;
     this.plants    = [];
@@ -219,11 +219,11 @@ export class PlantManager {
 
   _seed(world) {
     const types = Object.values(PLANT_TYPE);
-    for (let i = 0; i < this.maxPlants * 0.7; i++) {
+    for (let i = 0; i < this.maxPlants * 0.95; i++) {
       const tx = Math.floor(Math.random() * world.cols);
       const ty = Math.floor(Math.random() * world.rows);
       const tile = world.getTile(tx, ty);
-      if (!tile || !tile.props.passable || tile.props.fertility < 0.2) continue;
+      if (!tile || !tile.props.passable || tile.props.fertility < 0.05) continue;
       let type = types[Math.floor(Math.random() * types.length)];
       const fav = Object.entries(PLANT_CONFIG).filter(([k,v]) => v.favoredBiomes.includes(tile.biome));
       if (fav.length > 0) type = fav[Math.floor(Math.random() * fav.length)][0];

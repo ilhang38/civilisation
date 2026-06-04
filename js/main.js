@@ -14,8 +14,8 @@ import { SaveManager }           from './save.js';
 const CONFIG = {
   WORLD_COLS:    180,
   WORLD_ROWS:    120,
-  MAX_PLANTS:    800,
-  MAX_ANIMALS:   300,
+  MAX_PLANTS:    1200,
+  MAX_ANIMALS:   400,
   INITIAL_CAMPS: 3,
   TARGET_FPS:    30,
 };
@@ -152,6 +152,10 @@ class CivilSim {
 
   // ——— Mise à jour ——————————————————————————————————
   _update(dt) {
+    // dtBio = dt biologique plafonné : la vitesse x8 accélère les actions
+    // mais PAS les besoins vitaux (faim/soif) pour éviter la mort instantanée
+    // Max biologique équivalent à x2 réel pour rester vivable
+    const dtBio = Math.min(dt, 2.0);
     this.tick += dt;
 
     // Temps monde
@@ -164,18 +168,18 @@ class CivilSim {
     }
 
     // Monde
-    this.world.update(dt);
+    this.world.update(dtBio);
 
     // Plantes
-    this.plantMgr.update(dt);
+    this.plantMgr.update(dtBio);
 
     // Animaux
-    this.animalMgr.update(dt, this.plantMgr);
+    this.animalMgr.update(dtBio, this.plantMgr);
 
     // Colonies
     const newSettlements = [];
     for (const s of this.settlements) {
-      const child = s.update(dt, this.plantMgr, this.animalMgr, this.settlements);
+      const child = s.update(dtBio, this.plantMgr, this.animalMgr, this.settlements);
       if (child) newSettlements.push(child);
     }
     for (const ns of newSettlements) this.settlements.push(ns);
