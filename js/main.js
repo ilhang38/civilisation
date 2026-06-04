@@ -147,7 +147,7 @@ class CivilSim {
       this._update(dt);
     }
 
-    this._render();
+    this._render(timestamp);
   }
 
   // ——— Mise à jour ——————————————————————————————————
@@ -210,7 +210,7 @@ class CivilSim {
   }
 
   // ——— Rendu ————————————————————————————————————————
-  _render() {
+  _render(timestamp = 0) {
     const ctx  = this.ctx;
     const camX = Math.round(this.camera.x);
     const camY = Math.round(this.camera.y);
@@ -221,10 +221,10 @@ class CivilSim {
     ctx.clearRect(0, 0, W, H);
 
     // 1. Carte du monde
-    this.world.draw(ctx, camX, camY, W, H);
+    this.world.draw(ctx, camX, camY, W, H, timestamp);
 
     // 2. Plantes
-    this.plantMgr.draw(ctx, camX, camY, W, H);
+    this.plantMgr.draw(ctx, camX, camY, W, H, timestamp);
 
     // 3. Animaux
     this.animalMgr.draw(ctx, camX, camY, W, H);
