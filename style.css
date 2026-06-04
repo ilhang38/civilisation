@@ -516,3 +516,55 @@ aside {
   }
 }
 
+
+/* ——— RECHERCHE ——— */
+.search-input {
+  width: 100%;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-result {
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+.search-result:hover { background: var(--bg-hover); color: var(--accent); }
+#search-results { margin-top: 4px; }
+
+/* ——— HOTKEYS HINT ——— */
+#hotkeys-hint {
+  position: absolute;
+  bottom: 36px; left: 8px;
+  background: rgba(0,0,0,0.6);
+  color: var(--text-muted);
+  font: 9px var(--font-mono);
+  padding: 3px 7px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 8;
+}
+
+/* ——— CONTRÔLES CARTE ——— */
+#map-controls { display: flex; gap: 4px; }
+
+/* ——— LOCKED ACHIEVEMENT ——— */
+.locked-ach { opacity: 0.4; }
+.locked-ach:hover { opacity: 0.7; }
+
+/* ——— COLLAPSIBLE ——— */
+.toggle-btn { cursor: pointer; }
+.toggle-btn:hover { color: var(--accent) !important; }
+
+/* ——— SECTION SÉPARATION VISUELLE ——— */
+#sec-world { background: linear-gradient(135deg, rgba(77,184,255,0.03), transparent); }

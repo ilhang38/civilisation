@@ -4,6 +4,7 @@
 
 import { CITY_LEVEL, BUILDING_TYPE } from './city.js';
 import { TECH_CONFIG }               from './technology.js';
+import { ACHIEVEMENTS, WONDERS }     from './history.js';
 
 export class UI {
   constructor(sim) {
@@ -30,6 +31,9 @@ export class UI {
     this._drawEventLog();
     this._drawResourceBar();
     if (this._selected) this._drawSelection();
+    this._drawAchievements();
+    this._drawWonders();
+    this._drawHeroes();
 
     // Minimap moins souvent
     this._minimapTimer += 25;
@@ -179,13 +183,19 @@ export class UI {
 
   _drawEventLog() {
     const el = document.getElementById('event-log');
-    if (!el || !this.sim.seasonSys) return;
-    const events = this.sim.seasonSys.eventLog.slice(0,15);
+    if (!el) return;
+    // Priorité : système history > seasons
+    const history = this.sim.history;
+    const events  = history?.events?.slice(0, 20) || this.sim.seasonSys?.eventLog?.slice(0,15) || [];
     if (!events.length) { el.innerHTML='<p class="muted" style="font-size:10px">Aucun événement</p>'; return; }
     el.innerHTML = events.map(e=>`
-      <div style="padding:2px 0;border-bottom:1px solid #111820;font-size:10px">
-        <span style="opacity:0.5;font-size:9px">${e.time} </span>
-        <span>${e.icon} ${e.text}</span>
+      <div style="padding:2px 0;border-bottom:1px solid #111820;font-size:10px;display:flex;gap:4px;align-items:center">
+        <span style="font-size:12px">${e.icon||'📌'}</span>
+        <div>
+          ${e.settlementName ? `<span style="color:${e.settlementColor||'#888'};font-size:9px">${e.settlementName} · </span>` : ''}
+          <span style="color:#8aa0c0">${e.text}</span>
+          <span style="opacity:0.4;font-size:8px;display:block">An ${e.year||1}</span>
+        </div>
       </div>`).join('');
   }
 
@@ -286,6 +296,41 @@ export class UI {
     ctx.strokeStyle='rgba(255,255,255,0.6)';
     ctx.lineWidth=1;
     ctx.strokeRect(vx, vy, vw, vh);
+  }
+
+  _drawAchievements() {
+    const el = document.getElementById('achievement-list');
+    if (!el || !this.sim.history) return;
+    const done = this.sim.history.achievements;
+    el.innerHTML = ACHIEVEMENTS.map(a => `
+      <div class="stat-row ${done.has(a.id)?'':'locked-ach'}" title="${a.desc}">
+        <span>${a.icon} ${a.name}</span>
+        <span>${done.has(a.id)?'✅':'🔒'}</span>
+      </div>`).join('');
+  }
+
+  _drawWonders() {
+    const el = document.getElementById('wonders-list');
+    if (!el || !this.sim.history) return;
+    const built = this.sim.history.wonders;
+    if (!built.length) { el.innerHTML='<p class="muted" style="font-size:10px">Aucune merveille</p>'; return; }
+    el.innerHTML = built.map(w=>`
+      <div class="stat-row">
+        <span style="color:#ffd060">${w.wonder.icon} ${w.wonder.name}</span>
+        <span style="color:#5a7a9a;font-size:10px">${w.settlement}</span>
+      </div>`).join('');
+  }
+
+  _drawHeroes() {
+    const el = document.getElementById('heroes-list');
+    if (!el || !this.sim.heroRegistry) return;
+    const heroes = this.sim.heroRegistry.getLeaderboard();
+    if (!heroes.length) { el.innerHTML='<p class="muted" style="font-size:10px">Aucun héros</p>'; return; }
+    el.innerHTML = heroes.map(h=>`
+      <div class="stat-row">
+        <span style="color:#ffd060">⭐ ${h.name}</span>
+        <span style="color:#5a7a9a;font-size:9px">${h.trait}</span>
+      </div>`).join('');
   }
 
   showTooltip(x,y,text) {

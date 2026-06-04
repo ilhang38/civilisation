@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Civilisation — World Simulator</title>
+  <title>Civilisation — World Simulator v2</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
@@ -22,6 +22,12 @@
       <button id="btn-x8"   class="ctrl-btn">⚡ ×8</button>
       <button id="btn-reset" class="ctrl-btn danger">↺</button>
     </div>
+    <div id="map-controls">
+      <button id="btn-terr"  class="ctrl-btn" title="Territoires [T]">🗺 Terr.</button>
+      <button id="btn-heat-p" class="ctrl-btn" title="Heatmap Pop [H]">🔵 Pop</button>
+      <button id="btn-heat-w" class="ctrl-btn" title="Heatmap Richesse [W]">🟡 Rich.</button>
+      <button id="btn-heat-m" class="ctrl-btn" title="Heatmap Militaire [M]">🔴 Mil.</button>
+    </div>
     <div id="save-controls">
       <button id="btn-save"   class="ctrl-btn">💾</button>
       <button id="btn-export" class="ctrl-btn">📤</button>
@@ -31,27 +37,35 @@
   </header>
 
   <div id="app-layout">
-    <!-- PANNEAU GAUCHE -->
+    <!-- PANNEAU GAUCHE : monde, écosystème, guerres, diplo, classement -->
     <aside id="left-panel">
-      <div class="panel-section">
-        <h3 class="section-title">🌍 Monde</h3>
+      <div class="panel-section collapsible" id="sec-world">
+        <h3 class="section-title toggle-btn" data-target="world-stats">🌍 Monde ▾</h3>
         <div id="world-stats"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">🌿 Écosystème</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="ecology-stats">🌿 Écosystème ▾</h3>
         <div id="ecology-stats"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">⚔ Conflits</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="war-stats">⚔ Conflits ▾</h3>
         <div id="war-stats"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">🤝 Diplomatie</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="diplo-stats">🤝 Diplomatie ▾</h3>
         <div id="diplo-stats"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">🏆 Classement</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="ranking-stats">🏆 Classement ▾</h3>
         <div id="ranking-stats"></div>
+      </div>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="heroes-list">⭐ Héros ▾</h3>
+        <div id="heroes-list"></div>
+      </div>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="wonders-list">🏛 Merveilles ▾</h3>
+        <div id="wonders-list"></div>
       </div>
     </aside>
 
@@ -60,27 +74,37 @@
       <canvas id="main-canvas"></canvas>
       <div id="fps-overlay">FPS: -- | Entités: --</div>
       <div id="tooltip" class="hidden"></div>
-      <!-- Minimap -->
       <canvas id="minimap-canvas" width="180" height="120"></canvas>
+      <div id="hotkeys-hint">H=Pop · W=Rich · M=Mil · T=Terr</div>
     </main>
 
-    <!-- PANNEAU DROIT -->
+    <!-- PANNEAU DROIT : sélection, villes, techs, journal, succès -->
     <aside id="right-panel">
-      <div class="panel-section">
-        <h3 class="section-title">🔍 Sélection</h3>
+      <!-- Barre de recherche -->
+      <div class="panel-section" id="search-bar">
+        <input id="search-input" type="text" placeholder="🔍 Rechercher ville / personnage..." class="search-input"/>
+        <div id="search-results"></div>
+      </div>
+
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="selection-info">🔍 Sélection ▾</h3>
         <div id="selection-info"><p class="muted">Cliquez sur une entité</p></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">🏙 Colonies</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="city-list">🏙 Colonies ▾</h3>
         <div id="city-list"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">⚗ Technologies</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="tech-list">⚗ Technologies ▾</h3>
         <div id="tech-list"></div>
       </div>
-      <div class="panel-section">
-        <h3 class="section-title">📜 Journal</h3>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="event-log">📜 Journal ▾</h3>
         <div id="event-log"></div>
+      </div>
+      <div class="panel-section collapsible">
+        <h3 class="section-title toggle-btn" data-target="achievement-list">🏅 Succès ▾</h3>
+        <div id="achievement-list"></div>
       </div>
     </aside>
   </div>
@@ -117,5 +141,50 @@
   </footer>
 
   <script type="module" src="js/main.js"></script>
+  <script>
+    // Panneaux repliables
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = document.getElementById(btn.dataset.target);
+          if (!target) return;
+          const collapsed = target.style.display === 'none';
+          target.style.display = collapsed ? '' : 'none';
+          btn.textContent = btn.textContent.replace(collapsed ? '▸' : '▾', collapsed ? '▾' : '▸');
+        });
+      });
+
+      // Recherche
+      const input = document.getElementById('search-input');
+      const results = document.getElementById('search-results');
+      if (input) {
+        input.addEventListener('input', () => {
+          const q = input.value.toLowerCase().trim();
+          if (!q || !window.sim) { results.innerHTML=''; return; }
+          const matches = [];
+          for (const s of window.sim.settlements) {
+            if (s.name.toLowerCase().includes(q))
+              matches.push({ label:`🏙 ${s.name} (${s.level})`, action:()=>{ window.sim.camera.targetX=s.x-300; window.sim.camera.targetY=s.y-200; } });
+            for (const h of s.humans) {
+              if (h.name.toLowerCase().includes(q))
+                matches.push({ label:`👤 ${h.name} — ${s.name}`, action:()=>{ window.sim.camera.targetX=h.x-300; window.sim.camera.targetY=h.y-200; } });
+            }
+          }
+          results.innerHTML = matches.slice(0,8).map((m,i)=>
+            `<div class="search-result" data-idx="${i}">${m.label}</div>`
+          ).join('');
+          results.querySelectorAll('.search-result').forEach((el,i) => {
+            el.addEventListener('click', () => { matches[i].action(); results.innerHTML=''; input.value=''; });
+          });
+        });
+      }
+
+      // Boutons heatmap dans topbar
+      document.getElementById('btn-terr')?.addEventListener('click', () => window.sim?._showTerr = !window.sim._showTerr);
+      document.getElementById('btn-heat-p')?.addEventListener('click', () => window.sim?.heatmap?.toggle('population'));
+      document.getElementById('btn-heat-w')?.addEventListener('click', () => window.sim?.heatmap?.toggle('wealth'));
+      document.getElementById('btn-heat-m')?.addEventListener('click', () => window.sim?.heatmap?.toggle('military'));
+    });
+  </script>
 </body>
 </html>

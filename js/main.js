@@ -13,6 +13,9 @@ import { SaveManager }       from './save.js';
 import { SeasonSystem }      from './seasons.js';
 import { DiplomacySystem }   from './diplomacy.js';
 import { ParticleSystem }    from './particles.js';
+import { HistorySystem, EVENT_TYPE } from './history.js';
+import { TerritoryRenderer, HeatmapRenderer, RouteRenderer, NotificationSystem } from './renderer.js';
+import { HeroRegistry }      from './genetics.js';
 
 const CONFIG = {
   WORLD_COLS:    180,
@@ -22,7 +25,7 @@ const CONFIG = {
   INITIAL_CAMPS: 3,
 };
 
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
 
 // ============================================================
 // MENU PRINCIPAL
@@ -248,9 +251,16 @@ class CivilSim {
     this.graphs      = null;
     this.saveMgr     = null;
     this.playerPanel = null;
-    this.seasonSys   = null;
-    this.diplomacy   = null;
-    this.particles   = null;
+    this.seasonSys    = null;
+    this.diplomacy    = null;
+    this.particles    = null;
+    this.history      = null;
+    this.territory    = null;
+    this.heatmap      = null;
+    this.routeRend    = null;
+    this.notifs       = null;
+    this.heroRegistry = null;
+    this._showTerr    = true;
 
     this._fps        = 0;
     this._fpsTimer   = 0;
@@ -286,10 +296,21 @@ class CivilSim {
       this.playerPanel = new PlayerPanel(this);
     }
 
-    // Nouveaux systèmes
-    this.seasonSys = new SeasonSystem();
-    this.diplomacy = new DiplomacySystem();
-    this.particles = new ParticleSystem();
+    // Systèmes de base
+    this.seasonSys    = new SeasonSystem();
+    this.diplomacy    = new DiplomacySystem();
+    this.particles    = new ParticleSystem();
+    // Systèmes avancés
+    this.history      = new HistorySystem();
+    this.territory    = new TerritoryRenderer(this.world);
+    this.heatmap      = new HeatmapRenderer();
+    this.routeRend    = new RouteRenderer();
+    this.notifs       = new NotificationSystem();
+    this.heroRegistry = new HeroRegistry();
+    setTimeout(() => {
+      for (const s of this.settlements)
+        this.history.logEvent(EVENT_TYPE.FOUNDED, `${s.name} est fondée`, s, { year:1 });
+    }, 200);
 
     // Centrer caméra
     const midX = (this.world.cols * TILE_SIZE) / 2;
@@ -442,6 +463,22 @@ class CivilSim {
     this.diplomacy?.update(dt, this.settlements, this.world, this.seasonSys);
     this.particles?.update(dt);
     this.particles?.updateSettlements(this.settlements, dt);
+    this.history?.update(dt, this);
+    this.routeRend?.update(dt, this.diplomacy, this.settlements);
+    this.heatmap?.update(dt, this.settlements, this.world.cols*8, this.world.rows*8);
+    // Succès
+    const ach = this.history?.popAchievementNotification();
+    if (ach) this.notifs?.pushAchievement(ach);
+    // Héros
+    for (const s of this.settlements) {
+      for (const h of s.humans) {
+        const hero = this.heroRegistry?.checkAndRegister(h, s);
+        if (hero) {
+          this.notifs?.pushEvent('⭐', `Héros né : ${hero.name}!`, '#ffd060');
+          this.history?.logEvent(EVENT_TYPE.HERO, `${hero.name} — ${hero.trait}`, s);
+        }
+      }
+    }
     this.saveMgr?.update(dt);
 
     // Log nouveaux événements de guerre
@@ -477,8 +514,13 @@ class CivilSim {
     this.plantMgr.draw(ctx, camX, camY, vW, vH, timestamp);
     this.animalMgr.draw(ctx, camX, camY, vW, vH);
 
-    // Routes diplomatiques
-    this.diplomacy?.drawRoutes(ctx, this.settlements, camX, camY);
+    // Territoires colorés
+    if (this._showTerr) {
+      this.territory?.update(this.settlements);
+      this.territory?.draw(ctx, camX, camY, vW, vH);
+    }
+    // Routes commerciales
+    this.routeRend?.draw(ctx, camX, camY, this.diplomacy, this.settlements);
 
     // Colonies
     for (const s of this.settlements) {
@@ -495,7 +537,9 @@ class CivilSim {
 
     ctx.restore();
 
-    // Overlays (nuit, saison, catastrophes) — APRÈS restore pour être en coords écran
+    // Heatmap
+    this.heatmap?.draw(ctx, W, H);
+    // Overlays saison
     this.seasonSys?.draw(ctx, W, H, camX, camY);
 
     // Indicateur de zoom
@@ -644,6 +688,12 @@ class CivilSim {
       );
       document.getElementById(id)?.classList.add('active');
     };
+    window.addEventListener('keydown', e => {
+      if (e.key==='h'||e.key==='H') this.heatmap?.toggle('population');
+      if (e.key==='w'||e.key==='W') this.heatmap?.toggle('wealth');
+      if (e.key==='m'||e.key==='M') this.heatmap?.toggle('military');
+      if (e.key==='t'||e.key==='T') this._showTerr = !this._showTerr;
+    });
     document.getElementById('btn-menu')?.addEventListener('click', () => {
       if (confirm('Retourner au menu principal ?')) {
         localStorage.removeItem('civilsim_v1');

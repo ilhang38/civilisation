@@ -1,3 +1,4 @@
+import { Genome } from './genetics.js';
 // ============================================================
 // human.js — Entité humaine avec IA et système de besoins
 // ============================================================
@@ -62,6 +63,18 @@ export class Human {
     this.name = `${fn} ${ln}`;
     this.age  = 18 + Math.floor(Math.random() * 30);
     this.sex  = Math.random() < 0.5 ? 'M' : 'F';
+
+    // Génome génétique
+    this.genome = (settlement?._founderGenome1 && settlement?._founderGenome2)
+      ? new Genome(settlement._founderGenome1, settlement._founderGenome2)
+      : new Genome();
+
+    // Les attributs sont influencés par le génome
+    this.intelligence = Math.min(10, Math.round(this.genome.intelligence));
+    this.strength     = Math.min(10, Math.round(this.genome.strength));
+    this.speed        = Math.min(2.0, this.genome.speed);
+    this._parentId1   = null;
+    this._parentId2   = null;
 
     // Attributs (0–10)
     this.intelligence = 3 + Math.floor(Math.random() * 8);
