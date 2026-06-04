@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Civilisation — World Simulator</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <header id="topbar">
     <div id="title-block">
-      <button id="btn-menu" class="ctrl-btn menu-btn">🏠 Menu</button>
+      <button id="btn-menu" class="ctrl-btn">🏠</button>
       <span class="logo">CIVILISATION</span>
-      <span id="world-date">Année 1 — Jour 1</span>
+      <span id="world-date">Année 1 · Jour 1</span>
+      <span id="season-badge">🌸 Printemps</span>
     </div>
     <div id="speed-controls">
       <button id="btn-pause" class="ctrl-btn active">⏸</button>
@@ -24,37 +25,46 @@
     <div id="save-controls">
       <button id="btn-save"   class="ctrl-btn">💾</button>
       <button id="btn-export" class="ctrl-btn">📤</button>
-      <label for="import-file" class="ctrl-btn">📥</label>
-      <input type="file" id="import-file" accept=".json" style="display:none"/>
+      <label  for="import-file" class="ctrl-btn">📥</label>
+      <input  type="file" id="import-file" accept=".json" style="display:none"/>
     </div>
   </header>
 
   <div id="app-layout">
+    <!-- PANNEAU GAUCHE -->
     <aside id="left-panel">
       <div class="panel-section">
         <h3 class="section-title">🌍 Monde</h3>
         <div id="world-stats"></div>
       </div>
       <div class="panel-section">
-        <h3 class="section-title">📦 Ressources</h3>
-        <div id="resource-stats"></div>
-      </div>
-      <div class="panel-section">
         <h3 class="section-title">🌿 Écosystème</h3>
         <div id="ecology-stats"></div>
       </div>
       <div class="panel-section">
-        <h3 class="section-title">⚔ Guerres</h3>
+        <h3 class="section-title">⚔ Conflits</h3>
         <div id="war-stats"></div>
+      </div>
+      <div class="panel-section">
+        <h3 class="section-title">🤝 Diplomatie</h3>
+        <div id="diplo-stats"></div>
+      </div>
+      <div class="panel-section">
+        <h3 class="section-title">🏆 Classement</h3>
+        <div id="ranking-stats"></div>
       </div>
     </aside>
 
+    <!-- CANVAS -->
     <main id="canvas-area">
       <canvas id="main-canvas"></canvas>
       <div id="fps-overlay">FPS: -- | Entités: --</div>
       <div id="tooltip" class="hidden"></div>
+      <!-- Minimap -->
+      <canvas id="minimap-canvas" width="180" height="120"></canvas>
     </main>
 
+    <!-- PANNEAU DROIT -->
     <aside id="right-panel">
       <div class="panel-section">
         <h3 class="section-title">🔍 Sélection</h3>
@@ -68,29 +78,41 @@
         <h3 class="section-title">⚗ Technologies</h3>
         <div id="tech-list"></div>
       </div>
+      <div class="panel-section">
+        <h3 class="section-title">📜 Journal</h3>
+        <div id="event-log"></div>
+      </div>
     </aside>
   </div>
 
+  <!-- BOTTOM : graphiques + ressources -->
   <footer id="bottom-panel">
     <div class="graph-block">
-      <canvas id="graph-population" width="220" height="80"></canvas>
+      <canvas id="graph-population" width="180" height="70"></canvas>
       <span class="graph-label">Population</span>
     </div>
     <div class="graph-block">
-      <canvas id="graph-food" width="220" height="80"></canvas>
+      <canvas id="graph-food" width="180" height="70"></canvas>
       <span class="graph-label">Nourriture</span>
     </div>
     <div class="graph-block">
-      <canvas id="graph-animals" width="220" height="80"></canvas>
+      <canvas id="graph-animals" width="180" height="70"></canvas>
       <span class="graph-label">Animaux</span>
     </div>
     <div class="graph-block">
-      <canvas id="graph-cities" width="220" height="80"></canvas>
+      <canvas id="graph-cities" width="180" height="70"></canvas>
       <span class="graph-label">Colonies</span>
     </div>
     <div class="graph-block">
-      <canvas id="graph-resources" width="220" height="80"></canvas>
+      <canvas id="graph-resources" width="180" height="70"></canvas>
       <span class="graph-label">Ressources</span>
+    </div>
+    <div id="resource-bar">
+      <span id="res-food">🍖 --</span>
+      <span id="res-wood">🪵 --</span>
+      <span id="res-stone">🪨 --</span>
+      <span id="res-ore">⛏ --</span>
+      <span id="res-gold">💰 --</span>
     </div>
   </footer>
 

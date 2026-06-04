@@ -10,6 +10,9 @@ import { Human, JOB }        from './human.js';
 import { UI }                from './ui.js';
 import { GraphManager }      from './graphs.js';
 import { SaveManager }       from './save.js';
+import { SeasonSystem }      from './seasons.js';
+import { DiplomacySystem }   from './diplomacy.js';
+import { ParticleSystem }    from './particles.js';
 
 const CONFIG = {
   WORLD_COLS:    180,
@@ -245,6 +248,9 @@ class CivilSim {
     this.graphs      = null;
     this.saveMgr     = null;
     this.playerPanel = null;
+    this.seasonSys   = null;
+    this.diplomacy   = null;
+    this.particles   = null;
 
     this._fps        = 0;
     this._fpsTimer   = 0;
@@ -279,6 +285,11 @@ class CivilSim {
     if (this.mode === 'player') {
       this.playerPanel = new PlayerPanel(this);
     }
+
+    // Nouveaux systèmes
+    this.seasonSys = new SeasonSystem();
+    this.diplomacy = new DiplomacySystem();
+    this.particles = new ParticleSystem();
 
     // Centrer caméra
     const midX = (this.world.cols * TILE_SIZE) / 2;
@@ -377,21 +388,20 @@ class CivilSim {
     this.camera.y += (this.camera.targetY - this.camera.y) * 0.15;
 
     if (this.running) {
-      // Fix vitesse : on fait N passes de rawDt chacune
-      // x1=1 passe, x2=2 passes, x4=4 passes, x8=8 passes
-      // Chaque passe utilise rawDt (≈1) donc la biologie reste réaliste
-      const passes = this.speed;
-      for (let p = 0; p < passes; p++) {
-        this._update(rawDt, timestamp);
-      }
+      // VRAI FIX VITESSE :
+      // dt     = temps accéléré → constructions, déplacements, économie rapides
+      // dtBio  = plafonné à 3   → faim/soif/vie restent réalistes même à x8
+      const dt    = rawDt * this.speed;
+      const dtBio = Math.min(dt, 3.0);
+      this._update(dt, dtBio, timestamp);
     }
     this._render(timestamp);
   }
 
-  _update(dt, timestamp) {
+  _update(dt, dtBio, timestamp) {
     this.tick += dt;
 
-    // Temps monde
+    // Temps monde (accéléré)
     this._dayTimer += dt;
     if (this._dayTimer > 200) {
       this._dayTimer = 0;
@@ -400,13 +410,17 @@ class CivilSim {
       this.ui?.updateDate(this._worldYear, this._worldDay);
     }
 
+    // Monde et plantes : dt accéléré (regen ressources rapide)
     this.world.update(dt);
-    this.plantMgr.update(dt);
-    this.animalMgr.update(dt, this.plantMgr);
+    this.plantMgr.update(dtBio);
 
+    // Animaux : dtBio (faim/soif plafonnée)
+    this.animalMgr.update(dtBio, this.plantMgr);
+
+    // Colonies : dt pour économie/construction, dtBio pour humains
     const newS = [];
     for (const s of this.settlements) {
-      const child = s.update(dt, this.plantMgr, this.animalMgr, this.settlements);
+      const child = s.update(dt, dtBio, this.plantMgr, this.animalMgr, this.settlements);
       if (child) newS.push(child);
     }
     for (const ns of newS) this.settlements.push(ns);
@@ -424,12 +438,23 @@ class CivilSim {
       this.graphs?.draw();
     }
 
+    this.seasonSys?.update(dt, this.settlements, this.world);
+    this.diplomacy?.update(dt, this.settlements, this.world, this.seasonSys);
+    this.particles?.update(dt);
+    this.particles?.updateSettlements(this.settlements, dt);
     this.saveMgr?.update(dt);
+
+    // Log nouveaux événements de guerre
+    for (const s of this.settlements) {
+      if (s._newWarEvent) {
+        this.seasonSys?.logExternal('⚔', s._newWarEvent);
+        s._newWarEvent = null;
+      }
+    }
 
     const entities = this.plantMgr.plants.length + this.animalMgr.animals.length +
       this.settlements.reduce((s, c) => s + c.humans.length, 0);
     this.ui?.updateFPS(this._fps, entities);
-    this._updateWarPanel();
   }
 
   _render(timestamp = 0) {
@@ -452,13 +477,26 @@ class CivilSim {
     this.plantMgr.draw(ctx, camX, camY, vW, vH, timestamp);
     this.animalMgr.draw(ctx, camX, camY, vW, vH);
 
+    // Routes diplomatiques
+    this.diplomacy?.drawRoutes(ctx, this.settlements, camX, camY);
+
+    // Colonies
     for (const s of this.settlements) {
       const sx = s.x - camX, sy = s.y - camY;
       if (sx < -200 || sx > vW + 200 || sy < -200 || sy > vH + 200) continue;
       s.draw(ctx, camX, camY);
     }
 
+    // Bandits et caravanes
+    this.diplomacy?.draw(ctx, camX, camY, vW, vH);
+
+    // Particules
+    this.particles?.draw(ctx, camX, camY, vW, vH);
+
     ctx.restore();
+
+    // Overlays (nuit, saison, catastrophes) — APRÈS restore pour être en coords écran
+    this.seasonSys?.draw(ctx, W, H, camX, camY);
 
     // Indicateur de zoom
     this._drawZoomIndicator(ctx, W, H);

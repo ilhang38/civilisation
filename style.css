@@ -360,3 +360,57 @@ aside {
   box-shadow: 0 2px 12px rgba(0,0,0,0.5);
   pointer-events: none;
 }
+
+/* ——— MINIMAP ——— */
+#minimap-canvas {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  opacity: 0.85;
+  z-index: 10;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  cursor: pointer;
+}
+#minimap-canvas:hover { opacity: 1; }
+
+/* ——— SEASON BADGE ——— */
+#season-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent3);
+  background: rgba(68,232,154,0.08);
+  border: 1px solid rgba(68,232,154,0.2);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+/* ——— RESOURCE BAR ——— */
+#resource-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+#resource-bar span { min-width: 60px; }
+
+/* ——— OBJECTIFS MODE JOUEUR ——— */
+.objective {
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0;
+}
+.objective.done { color: var(--accent3); background: rgba(68,232,154,0.08); }
+.objective.todo { color: var(--text-dim); }

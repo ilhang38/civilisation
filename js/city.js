@@ -80,39 +80,38 @@ export class Settlement {
   }
 
   // ——— Update ——————————————————————————————————————
-  update(dt, plantMgr, animalMgr, allSettlements) {
+  // dt    = dt accéléré pour économie/construction
+  // dtBio = dt plafonné pour humains (faim/soif)
+  update(dt, dtBio, plantMgr, animalMgr, allSettlements) {
     this.age += dt;
 
+    // Humains : dtBio pour que la faim reste réaliste
     for (let i = this.humans.length-1; i >= 0; i--) {
-      this.humans[i].update(dt, plantMgr, animalMgr);
+      this.humans[i].update(dtBio, plantMgr, animalMgr);
       if (!this.humans[i].alive) this.humans.splice(i,1);
     }
 
-    // Consommation
+    // Consommation nourriture : dt accéléré (économie réaliste)
     this.stockpile.food -= this.humans.length * 0.012 * dt;
     if (this.stockpile.food < 0) {
       this.stockpile.food = 0;
-      if (Math.random() < 0.0002*dt && this.humans.length > 2)
+      if (Math.random() < 0.0002*dtBio && this.humans.length > 2)
         this.humans.splice(Math.floor(Math.random()*this.humans.length),1);
     }
 
     this._biomeProduce(dt);
     this._runBuildings(dt);
-    this._growPopulation(dt);
+    this._growPopulation(dtBio);
     this._assignJobs();
     this._autoBuild(dt);
 
-    // Technologie
     this.knowledge += dt * 0.15 * (1 + this.humans.length * 0.02);
     this.tech.autoResearch();
     this.tech.update(dt, 0.06 * (1 + this.humans.length * 0.01));
 
     this._evolveLevel();
-
-    // Guerres
     this._updateWar(dt, allSettlements);
 
-    // Expansion
     this.expansionTimer -= dt;
     if (this.expansionTimer < 0 && this.humans.length >= 12 && this.stockpile.food > 80 && !this.isPlayerOwned) {
       this.expansionTimer = 500 + Math.random() * 400;
