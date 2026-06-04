@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CivilSim — World Simulator</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <!-- TOP BAR -->
+  <header id="topbar">
+    <div id="title-block">
+      <span class="logo">⚙ CIVILSIM</span>
+      <span id="world-date">Année 1 — Jour 1</span>
+    </div>
+    <div id="speed-controls">
+      <button id="btn-pause" class="ctrl-btn active">⏸ Pause</button>
+      <button id="btn-play"  class="ctrl-btn">▶ x1</button>
+      <button id="btn-x2"   class="ctrl-btn">⏩ x2</button>
+      <button id="btn-x4"   class="ctrl-btn">⏭ x4</button>
+      <button id="btn-x8"   class="ctrl-btn">⚡ x8</button>
+      <button id="btn-reset" class="ctrl-btn danger">↺ Reset</button>
+    </div>
+    <div id="save-controls">
+      <button id="btn-save"   class="ctrl-btn">💾 Sauver</button>
+      <button id="btn-export" class="ctrl-btn">📤 Export</button>
+      <label for="import-file" class="ctrl-btn">📥 Import</label>
+      <input type="file" id="import-file" accept=".json" style="display:none"/>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <div id="app-layout">
+
+    <!-- LEFT PANEL -->
+    <aside id="left-panel">
+      <div class="panel-section" id="section-world">
+        <h3 class="section-title">🌍 Monde</h3>
+        <div id="world-stats"></div>
+      </div>
+      <div class="panel-section" id="section-resources">
+        <h3 class="section-title">📦 Ressources globales</h3>
+        <div id="resource-stats"></div>
+      </div>
+      <div class="panel-section" id="section-ecology">
+        <h3 class="section-title">🌿 Écosystème</h3>
+        <div id="ecology-stats"></div>
+      </div>
+    </aside>
+
+    <!-- CANVAS AREA -->
+    <main id="canvas-area">
+      <canvas id="main-canvas"></canvas>
+      <div id="fps-overlay">FPS: -- | Entités: --</div>
+      <div id="tooltip" class="hidden"></div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside id="right-panel">
+      <div class="panel-section" id="section-selection">
+        <h3 class="section-title">🔍 Sélection</h3>
+        <div id="selection-info"><p class="muted">Cliquez sur une entité</p></div>
+      </div>
+      <div class="panel-section" id="section-cities">
+        <h3 class="section-title">🏙 Villes</h3>
+        <div id="city-list"></div>
+      </div>
+      <div class="panel-section" id="section-tech">
+        <h3 class="section-title">⚗ Technologies</h3>
+        <div id="tech-list"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- BOTTOM PANEL: GRAPHS -->
+  <footer id="bottom-panel">
+    <div class="graph-block">
+      <canvas id="graph-population" width="220" height="80"></canvas>
+      <span class="graph-label">Population</span>
+    </div>
+    <div class="graph-block">
+      <canvas id="graph-food" width="220" height="80"></canvas>
+      <span class="graph-label">Nourriture</span>
+    </div>
+    <div class="graph-block">
+      <canvas id="graph-animals" width="220" height="80"></canvas>
+      <span class="graph-label">Animaux</span>
+    </div>
+    <div class="graph-block">
+      <canvas id="graph-cities" width="220" height="80"></canvas>
+      <span class="graph-label">Villes</span>
+    </div>
+    <div class="graph-block">
+      <canvas id="graph-resources" width="220" height="80"></canvas>
+      <span class="graph-label">Ressources</span>
+    </div>
+  </footer>
+
+  <!-- MODULES (ordre d'import critique) -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
