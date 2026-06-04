@@ -324,7 +324,7 @@ class CivilSim {
     }
   }
 
-  // Mode joueur : 1 homme + 1 femme, resources limitées
+  // Mode joueur : SEULEMENT Adam et Ève, aucune colonie IA
   _createPlayerStart() {
     const midX = (this.world.cols * TILE_SIZE) / 2;
     const midY = (this.world.rows * TILE_SIZE) / 2;
@@ -333,33 +333,28 @@ class CivilSim {
 
     const sx = tile.x * TILE_SIZE + TILE_SIZE / 2;
     const sy = tile.y * TILE_SIZE + TILE_SIZE / 2;
-    const s  = new Settlement(sx, sy, this.world);
-    s.isPlayerOwned = true;
 
-    // Vider les humains auto-générés
-    s.humans = [];
+    // playerMode=true → pas d'humains auto, pas de ferme auto
+    const s = new Settlement(sx, sy, this.world, null, true);
 
-    // Créer l'homme
-    const homme = new Human(sx - 10, sy, s, this.world);
-    homme.name  = 'Adam';
-    homme.sex   = 'M';
-    homme.job   = JOB.HUNTER;
+    // Adam
+    const homme = new Human(sx - 12, sy, s, this.world);
+    homme.name = 'Adam'; homme.sex = 'M'; homme.job = JOB.HUNTER;
     s.humans.push(homme);
 
-    // Créer la femme
-    const femme = new Human(sx + 10, sy, s, this.world);
-    femme.name  = 'Ève';
-    femme.sex   = 'F';
-    femme.job   = JOB.FARMER;
+    // Ève
+    const femme = new Human(sx + 12, sy, s, this.world);
+    femme.name = 'Ève'; femme.sex = 'F'; femme.job = JOB.FARMER;
     s.humans.push(femme);
 
-    // Stocks de départ minimalistes
+    // Stocks de survie minimalistes
     s.stockpile = { food: 40, wood: 20, stone: 10, ore: 0, gold: 0 };
 
-    this.settlements.push(s);
+    // Croissance pop bloquée jusqu'à ce que le joueur construise des maisons
+    s.maxPop = 2;
 
-    // 2 colonies IA lointaines pour l'ambiance
-    this._createInitialSettlements(2);
+    this.settlements.push(s);
+    // PAS de colonies IA supplémentaires en mode joueur
   }
 
   // ——— Boucle ————————————————————————————————————————

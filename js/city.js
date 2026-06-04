@@ -40,7 +40,7 @@ const CITY_NAMES = ['Avalon','Brest','Calais','Dorin','Embor','Favre','Greva','H
                     'Xandor','Yarvil','Zephyr','Aldmar','Birken','Crestol','Dunvale'];
 
 export class Settlement {
-  constructor(x, y, world, founder = null) {
+  constructor(x, y, world, founder = null, playerMode = false) {
     this.id    = _nextSettlementId++;
     this.x     = x;
     this.y     = y;
@@ -65,6 +65,7 @@ export class Settlement {
 
     // CORRECTION : expansion possible bien plus tôt
     this.expansionTimer = 300 + Math.random() * 300;
+    this.isPlayerOwned  = playerMode;
 
     if (founder) {
       founder.settlement = this;
@@ -72,14 +73,14 @@ export class Settlement {
       this.humans.push(founder);
     }
 
-    // CORRECTION : 4 humains initiaux au lieu de 3
-    for (let i = 0; i < 4; i++) this._spawnHuman();
-
-    // CORRECTION : construire une ferme immédiatement au départ
-    this.buildings.push({
-      type:'FARM', name:'Ferme', icon:'🌾',
-      x: x + 20, y: y + 10,
-    });
+    // En mode joueur : pas d'humains auto, pas de ferme auto
+    if (!playerMode) {
+      for (let i = 0; i < 4; i++) this._spawnHuman();
+      this.buildings.push({
+        type:'FARM', name:'Ferme', icon:'🌾',
+        x: x + 20, y: y + 10,
+      });
+    }
   }
 
   update(dt, plantMgr, animalMgr, allSettlements) {
