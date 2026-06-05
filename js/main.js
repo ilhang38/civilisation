@@ -1030,7 +1030,7 @@ class HorrorGame {
         ],
         playerStart: { x:1.5, y:1.5, angle:0 },
         objects: [
-          { x:8.5, y:2.5, type:'generator', desc:'Générateur électrique. Il faut le réparer.' },
+          { x:8.5, y:2.5, type:'generator', required:true, desc:'Générateur électrique. Il faut le réparer.' },
           { x:12.5, y:6.5, type:'note', id:'note_1', desc:'"Ils ont tous disparu. Ne venez pas ici." — Gardien R.' },
           { x:4.5, y:10.5, type:'battery', desc:'Piles AA. La lampe peut continuer.' },
         ],
@@ -1215,49 +1215,122 @@ class HorrorGame {
 
   _render3D() {
     const ctx=this.ctx, W=this.W, H=this.H;
-    const isRed  = this.mapData?.isRed;
-    const isMad  = this.mapData?.isMadness;
-
-    // Shake caméra
+    const isRed = this.mapData?.isRed;
+    const isMad = this.mapData?.isMadness;
     const sx=this.effects.shake.x, sy=this.effects.shake.y;
 
-    // ——— SOL et PLAFOND ———
-    const ceilColor = isRed?'#1a0000':isMad?'#050010':'#080808';
-    const floorColor= isRed?'#1a0505':isMad?'#050010':'#0d0d0d';
-    ctx.fillStyle = ceilColor;
-    ctx.fillRect(0+sx, 0+sy, W, H/2);
-    ctx.fillStyle = floorColor;
-    ctx.fillRect(0+sx, H/2+sy, W, H/2);
+    // Lampe : intensité selon batterie et scintillement
+    const battPct   = this.battery / 100;
+    const flickMult = 1 - this.effects.flicker * 0.7;
+    const lampPower = battPct * flickMult; // 0=éteint 1=plein
 
-    // ——— MURS RAYCASTING ———
-    const rayStep = this.FOV / this.RAYS;
+    // ——— FOND TOTAL NOIR ———
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+
+    // ——— SOL et PLAFOND avec perspective ———
+    // Sol : dégradé du milieu vers le bas
+    const floorGrad = ctx.createLinearGradient(0, H/2, 0, H);
+    if(isRed){
+      floorGrad.addColorStop(0, `rgba(25,2,2,${0.6*lampPower})`);
+      floorGrad.addColorStop(1, '#000');
+    } else if(isMad){
+      floorGrad.addColorStop(0, `rgba(5,2,15,${0.5*lampPower})`);
+      floorGrad.addColorStop(1, '#000');
+    } else {
+      floorGrad.addColorStop(0, `rgba(12,10,8,${0.7*lampPower})`);
+      floorGrad.addColorStop(1, '#000');
+    }
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(sx, H/2+sy, W, H/2);
+
+    // Plafond : dégradé du milieu vers le haut
+    const ceilGrad = ctx.createLinearGradient(0, H/2, 0, 0);
+    if(isRed){
+      ceilGrad.addColorStop(0, `rgba(18,0,0,${0.5*lampPower})`);
+      ceilGrad.addColorStop(1, '#000');
+    } else {
+      ceilGrad.addColorStop(0, `rgba(6,5,4,${0.5*lampPower})`);
+      ceilGrad.addColorStop(1, '#000');
+    }
+    ctx.fillStyle = ceilGrad;
+    ctx.fillRect(sx, 0+sy, W, H/2);
+
+    // ——— MURS RAYCASTING avec texture procédurale ———
+    const rayStep    = this.FOV / this.RAYS;
     const startAngle = this.player.angle - this.FOV/2;
+    const centerRay  = this.RAYS / 2;
 
     for(let r=0; r<this.RAYS; r++){
-      const rayAngle = startAngle + r*rayStep;
-      const { dist } = this._cast(rayAngle);
-      const corrDist = dist * Math.cos(rayAngle - this.player.angle);
-      const wallH = Math.min(H, (1/corrDist)*H*0.7);
-      const x = (r/this.RAYS)*W + sx;
+      const rayAngle  = startAngle + r*rayStep;
+      const { dist, hit } = this._cast(rayAngle);
+      const corrDist  = Math.max(0.05, dist * Math.cos(rayAngle - this.player.angle));
+      const wallH     = Math.min(H, (1/corrDist)*H*0.75);
+      const wallTop   = (H - wallH)/2;
+      const x         = (r/this.RAYS)*W + sx;
+      const rayW      = W/this.RAYS + 1;
 
-      // Couleur mur selon distance + ambiance
-      const bright = Math.max(0, 1 - corrDist/this.RAYS);
-      let r2,g2,b2;
-      if(isRed){ r2=40+bright*120; g2=bright*8; b2=bright*8; }
-      else if(isMad){ r2=bright*20; g2=bright*8; b2=bright*40; }
-      else { r2=g2=b2=bright*160+10; }
+      if(!hit) continue;
 
-      // Scintillement lampe
-      const flick = 1 - this.effects.flicker*0.4;
-      r2*=flick; g2*=flick; b2*=flick;
+      // Atténuation lumière : lampe torche = cône central
+      const relativeRay = (r - centerRay) / centerRay; // -1 à 1
+      const coneAtten   = Math.max(0, 1 - relativeRay*relativeRay*1.4); // fondu sur les bords
+      const distAtten   = Math.max(0, 1 - corrDist/7);  // s'éteint à 7 unités
+      const lightFactor = coneAtten * distAtten * lampPower * flickMult;
 
-      ctx.fillStyle = `rgb(${r2|0},${g2|0},${b2|0})`;
-      const rayW = W/this.RAYS+1;
-      ctx.fillRect(x, (H-wallH)/2+sy, rayW, wallH);
+      // Couleur de base du mur selon ambiance
+      let rBase,gBase,bBase;
+      if(isRed){
+        // Sous-sol : murs rouges sombres
+        rBase = 60 + lightFactor*140;
+        gBase = 2  + lightFactor*12;
+        bBase = 2  + lightFactor*8;
+      } else if(isMad){
+        // Folie : violet-bleu
+        rBase = 8  + lightFactor*30;
+        gBase = 4  + lightFactor*15;
+        bBase = 20 + lightFactor*80;
+      } else {
+        // Normal : gris-béton
+        rBase = 4  + lightFactor*120;
+        gBase = 4  + lightFactor*105;
+        bBase = 4  + lightFactor*90;
+      }
 
-      // Bord bas du mur (ombre)
-      ctx.fillStyle = `rgba(0,0,0,0.3)`;
-      ctx.fillRect(x, (H+wallH)/2-4+sy, rayW, 4);
+      // Texture mur : variation verticale (briques/béton)
+      const brickLine = wallTop + sy;
+      ctx.fillStyle = `rgb(${rBase|0},${gBase|0},${bBase|0})`;
+      ctx.fillRect(x, brickLine, rayW, wallH);
+
+      // Joints de briques (lignes horizontales sombres)
+      if(lightFactor > 0.05){
+        const brickH = H * 0.08;
+        const offset = Math.floor(corrDist * 3) % 2 === 0 ? 0 : brickH/2;
+        ctx.fillStyle = `rgba(0,0,0,${0.25*lightFactor})`;
+        for(let by=brickLine; by<brickLine+wallH; by+=brickH){
+          ctx.fillRect(x, by|0, rayW, 1);
+        }
+        // Variation aléatoire par rayons (taches humidité)
+        if(r%3===0 && lightFactor>0.15){
+          const tacheAlpha = (Math.sin(r*7.3)*0.5+0.5)*0.2*lightFactor;
+          ctx.fillStyle = `rgba(0,0,0,${tacheAlpha})`;
+          ctx.fillRect(x, brickLine + wallH*0.3, rayW, wallH*0.25);
+        }
+      }
+
+      // Ombre pied du mur (plus sombre)
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(x, wallTop+wallH*0.85+sy, rayW, wallH*0.15);
+
+      // Ombre plafond
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(x, wallTop+sy, rayW, wallH*0.08);
+    }
+
+    // ——— FADE SORTIE ———
+    if(this._fadeAlpha > 0){
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(1,this._fadeAlpha)})`;
+      ctx.fillRect(0, 0, W, H);
     }
   }
 
@@ -1311,15 +1384,42 @@ class HorrorGame {
       ctx.font=`${sprH*0.2}px serif`; ctx.textAlign='center';
       ctx.fillText(label, screenX, H/2+4);
     } else {
-      // Monstres : silhouette
-      ctx.fillRect(screenX-sprH*0.15, sprY, sprH*0.3, sprH);
+      // Monstres : silhouette détaillée selon type
+      const alpha2 = Math.min(1, 0.3 + 0.7/dist);
+      ctx.globalAlpha = alpha2;
+
+      // Corps
+      ctx.fillStyle = color;
+      const bodyW = sprH * 0.28;
+      ctx.fillRect(screenX - bodyW/2, sprY + sprH*0.2, bodyW, sprH*0.6);
+
+      // Bras déformés
+      ctx.fillRect(screenX - bodyW*1.4, sprY+sprH*0.25, bodyW*0.8, sprH*0.4);
+      ctx.fillRect(screenX + bodyW*0.6,  sprY+sprH*0.25, bodyW*0.8, sprH*0.4);
+
       // Tête
-      ctx.beginPath(); ctx.arc(screenX, sprY-sprH*0.1, sprH*0.15, 0, Math.PI*2); ctx.fill();
-      // Lueur yeux
-      ctx.fillStyle='#ff2020'; ctx.shadowColor='#ff0000'; ctx.shadowBlur=6;
-      ctx.beginPath(); ctx.arc(screenX-sprH*0.05, sprY-sprH*0.1, sprH*0.04, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(screenX+sprH*0.05, sprY-sprH*0.1, sprH*0.04, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur=0;
+      const headR = sprH * 0.14;
+      ctx.beginPath(); ctx.arc(screenX, sprY + headR, headR, 0, Math.PI*2); ctx.fill();
+
+      // Yeux lumineux (couleur selon type)
+      const eyeColor = label==='Veuve'?'#aa00ff':label==='Patient'?'#ff8800':'#ff1010';
+      ctx.fillStyle = eyeColor;
+      ctx.shadowColor = eyeColor; ctx.shadowBlur = dist < 3 ? 12 : 6;
+      ctx.beginPath(); ctx.arc(screenX - headR*0.35, sprY + headR*0.9, headR*0.28, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(screenX + headR*0.35, sprY + headR*0.9, headR*0.28, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Jambes
+      ctx.fillStyle = color; ctx.globalAlpha = alpha2 * 0.8;
+      ctx.fillRect(screenX - bodyW*0.5, sprY+sprH*0.75, bodyW*0.4, sprH*0.25);
+      ctx.fillRect(screenX + bodyW*0.1, sprY+sprH*0.75, bodyW*0.4, sprH*0.25);
+
+      // Brume autour si proche
+      if(dist < 3){
+        ctx.globalAlpha = (3-dist)/3 * 0.15;
+        ctx.fillStyle = eyeColor;
+        ctx.beginPath(); ctx.arc(screenX, sprY+sprH/2, sprH*0.6, 0, Math.PI*2); ctx.fill();
+      }
     }
     ctx.globalAlpha=1;
     ctx.textAlign='left';
@@ -1355,14 +1455,15 @@ class HorrorGame {
       ctx.globalAlpha=1;
     }
 
-    // Lampe torche (cercle de lumière central)
-    if(this.battery>0){
-      const flick=1-this.effects.flicker*0.5;
-      const lampR = ctx.createRadialGradient(W/2,H/2,10,W/2,H/2,H*0.45*flick);
-      lampR.addColorStop(0,`rgba(255,240,200,${0.06*flick})`);
-      lampR.addColorStop(0.5,'rgba(0,0,0,0)');
-      lampR.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=lampR; ctx.fillRect(0,0,W,H);
+    // Noir complet si batterie vide
+    if(this.battery<=0){
+      ctx.fillStyle='rgba(0,0,0,0.96)';
+      ctx.fillRect(0,0,W,H);
+      // Texte
+      ctx.fillStyle='rgba(180,30,30,0.6)';
+      ctx.font='italic 13px serif'; ctx.textAlign='center';
+      ctx.fillText('La lampe est morte. Cherche des piles.', W/2, H*0.6);
+      ctx.textAlign='left';
     }
 
     // ——— BARRE HUD BAS ———
@@ -1434,10 +1535,100 @@ class HorrorGame {
       ctx.textAlign='left';
     }
 
+    // ——— MINIMAP ———
+    this._drawMinimap(ctx, W, H);
+
     // Crosshair minimal
     ctx.strokeStyle='rgba(200,200,200,0.4)'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(W/2-6,H/2); ctx.lineTo(W/2+6,H/2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(W/2,H/2-6); ctx.lineTo(W/2,H/2+6); ctx.stroke();
+  }
+
+  // ——— MINIMAP ————————————————————————————————
+  _drawMinimap(ctx, W, H) {
+    const CELL  = 7;           // pixels par case
+    const MROWS = this.MAP_H;
+    const MCOLS = this.MAP_W;
+    const mW    = MCOLS * CELL;
+    const mH    = MROWS * CELL;
+    const MX    = W - mW - 12;  // coin bas-droit
+    const MY    = H - mH - 42;
+
+    // Fond semi-transparent
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(MX-2, MY-2, mW+4, mH+4);
+    ctx.strokeStyle = 'rgba(180,160,100,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(MX-2, MY-2, mW+4, mH+4);
+
+    // Cases de la carte
+    for(let y=0; y<MROWS; y++){
+      for(let x=0; x<MCOLS; x++){
+        const cell = this.map[y]?.[x];
+        if(cell===1){
+          ctx.fillStyle = 'rgba(160,150,130,0.8)';
+          ctx.fillRect(MX+x*CELL, MY+y*CELL, CELL, CELL);
+        } else {
+          ctx.fillStyle = 'rgba(30,25,20,0.7)';
+          ctx.fillRect(MX+x*CELL, MY+y*CELL, CELL, CELL);
+        }
+      }
+    }
+
+    // Sorties (jaune)
+    for(const exit of (this.mapData?.exits||[])){
+      ctx.fillStyle = 'rgba(255,220,60,0.8)';
+      ctx.fillRect(MX+Math.floor(exit.x)*CELL+1, MY+Math.floor(exit.y)*CELL+1, CELL-2, CELL-2);
+    }
+
+    // Objets non ramassés (bleu clair)
+    for(const obj of this.objects){
+      if(this.collectedObjects.has(obj.id||obj.type+obj.x)) continue;
+      ctx.fillStyle = 'rgba(100,200,255,0.7)';
+      const ox = MX+Math.floor(obj.x)*CELL+CELL/2;
+      const oy = MY+Math.floor(obj.y)*CELL+CELL/2;
+      ctx.beginPath(); ctx.arc(ox, oy, 2, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Monstres (rouge)
+    for(const m of this.monsters){
+      if(m.dead) continue;
+      const dist = Math.hypot(m.x-this.player.x, m.y-this.player.y);
+      // Visible sur minimap seulement si proche ou si en alerte
+      if(dist > 6 && m.state !== 'chase') continue;
+      ctx.fillStyle = m.state==='chase' ? 'rgba(255,50,50,1)' : 'rgba(255,100,100,0.6)';
+      const mx2 = MX + m.x*CELL;
+      const my2 = MY + m.y*CELL;
+      ctx.beginPath(); ctx.arc(mx2, my2, 3, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Joueur (blanc avec direction)
+    const px2 = MX + this.player.x * CELL;
+    const py2 = MY + this.player.y * CELL;
+    // Cône de vision
+    ctx.fillStyle = 'rgba(255,255,200,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(px2, py2);
+    const coneLen = 18;
+    const halfFOV = this.FOV / 2;
+    ctx.lineTo(px2+Math.cos(this.player.angle-halfFOV)*coneLen, py2+Math.sin(this.player.angle-halfFOV)*coneLen);
+    ctx.lineTo(px2+Math.cos(this.player.angle+halfFOV)*coneLen, py2+Math.sin(this.player.angle+halfFOV)*coneLen);
+    ctx.closePath(); ctx.fill();
+    // Point joueur
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(px2, py2, 3.5, 0, Math.PI*2); ctx.fill();
+    // Flèche direction
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px2, py2);
+    ctx.lineTo(px2+Math.cos(this.player.angle)*8, py2+Math.sin(this.player.angle)*8);
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = 'rgba(180,160,100,0.5)';
+    ctx.font = '8px monospace'; ctx.textAlign='right';
+    ctx.fillText('CARTE', W-12, H-42-mH-5);
+    ctx.textAlign='left';
   }
 
   // ——— MISE À JOUR ——————————————————————————————
@@ -1449,19 +1640,31 @@ class HorrorGame {
     p.isRunning = this.keys['ShiftLeft']||this.keys['ShiftRight'];
     const spd = p.isRunning ? p.speed*1.8 : p.speed;
 
-    if(this.keys['KeyW']||this.keys['ArrowUp']){
+    // Avancer/reculer — ZQSD uniquement (flèches supprimées)
+    if(this.keys['KeyW']){
       const nx=p.x+Math.cos(p.angle)*spd, ny=p.y+Math.sin(p.angle)*spd;
       if(!this._isWall(nx,p.y)) p.x=nx;
       if(!this._isWall(p.x,ny)) p.y=ny;
       if(p.isRunning) p.stamina=Math.max(0,p.stamina-dt*0.04);
     }
-    if(this.keys['KeyS']||this.keys['ArrowDown']){
+    if(this.keys['KeyS']){
       const nx=p.x-Math.cos(p.angle)*spd*0.6, ny=p.y-Math.sin(p.angle)*spd*0.6;
       if(!this._isWall(nx,p.y)) p.x=nx;
       if(!this._isWall(p.x,ny)) p.y=ny;
     }
-    if(this.keys['KeyA']||this.keys['ArrowLeft'])  p.angle-=p.turnSpeed*dt*0.016*60;
-    if(this.keys['KeyD']||this.keys['ArrowRight']) p.angle+=p.turnSpeed*dt*0.016*60;
+    // Strafe gauche/droite avec A et D (pas de rotation clavier)
+    if(this.keys['KeyA']){
+      const strafeAngle = p.angle - Math.PI/2;
+      const nx=p.x+Math.cos(strafeAngle)*spd*0.8, ny=p.y+Math.sin(strafeAngle)*spd*0.8;
+      if(!this._isWall(nx,p.y)) p.x=nx;
+      if(!this._isWall(p.x,ny)) p.y=ny;
+    }
+    if(this.keys['KeyD']){
+      const strafeAngle = p.angle + Math.PI/2;
+      const nx=p.x+Math.cos(strafeAngle)*spd*0.8, ny=p.y+Math.sin(strafeAngle)*spd*0.8;
+      if(!this._isWall(nx,p.y)) p.x=nx;
+      if(!this._isWall(p.x,ny)) p.y=ny;
+    }
 
     // Batterie lampe
     this.battery=Math.max(0,this.battery-dt*0.003);
@@ -1489,14 +1692,14 @@ class HorrorGame {
       if(dist<m.cfg.sight){
         // Alerte : approcher
         m.state='chase';
-        const spd2=m.cfg.speed*dt*0.06*60;
+        const spd2=m.cfg.speed*0.45*dt*0.06*60;
         const nx=m.x+Math.cos(Math.atan2(dy,dx))*spd2;
         const ny=m.y+Math.sin(Math.atan2(dy,dx))*spd2;
         if(!this._isWall(nx,m.y)) m.x=nx;
         if(!this._isWall(m.x,ny)) m.y=ny;
         // Dégâts si très proche
         if(dist<0.7){
-          p.health-=dt*0.06*60*0.3;
+          p.health-=dt*0.06*60*0.12;
           this.effects.heartbeat=1;
           this.effects.shakeTimer=10;
           this.sanity=Math.max(0,this.sanity-dt*0.02*60);
@@ -1506,7 +1709,7 @@ class HorrorGame {
         m.state='wander';
         m.wanderTimer-=dt;
         if(m.wanderTimer<0){ m.wanderTimer=60+Math.random()*120; m.angle=Math.random()*Math.PI*2; }
-        const spd3=m.cfg.speed*0.5*dt*0.06*60;
+        const spd3=m.cfg.speed*0.22*dt*0.06*60;
         const nx=m.x+Math.cos(m.angle)*spd3, ny=m.y+Math.sin(m.angle)*spd3;
         if(!this._isWall(nx,m.y)) m.x=nx; else m.angle+=Math.PI/2;
         if(!this._isWall(m.x,ny)) m.y=ny; else m.angle+=Math.PI/2;
@@ -1535,10 +1738,33 @@ class HorrorGame {
     // Vérif sanité critique
     if(p.health<=0) this._triggerEnding('dead');
 
-    // Sortie du niveau
+    // Sortie du niveau — porte s'ouvre quand tous les objets requis sont pris
     for(const exit of (this.mapData?.exits||[])){
       const dx=p.x-exit.x, dy=p.y-exit.y;
-      if(Math.sqrt(dx*dx+dy*dy)<0.8) this._loadChapter(exit.toChapter);
+      if(Math.sqrt(dx*dx+dy*dy)<1.2){
+        // Vérifier si les objets requis (notes + clés) sont ramassés
+        const required = this.objects.filter(o=>o.required||o.type==='key'||o.type==='note');
+        const allDone  = required.every(o=>this.collectedObjects.has(o.id||o.type+o.x));
+        if(allDone || required.length===0){
+          if(!this._exitTimer) {
+            this._exitTimer = 120; // 2 secondes de fade
+            this._showNarrative('★ Sortie trouvée...', 2000);
+          }
+        } else {
+          const remaining = required.filter(o=>!this.collectedObjects.has(o.id||o.type+o.x)).length;
+          this._showNarrative(`La porte est verrouillée.\n${remaining} élément(s) à trouver avant de continuer.`, 2500);
+        }
+      }
+    }
+    // Countdown sortie
+    if(this._exitTimer){
+      this._exitTimer--;
+      this._fadeAlpha = (this._fadeAlpha||0) + 0.008;
+      if(this._exitTimer<=0){
+        this._exitTimer=0; this._fadeAlpha=0;
+        const exit=this.mapData?.exits?.[0];
+        if(exit) this._loadChapter(exit.toChapter);
+      }
     }
 
     // Narrative timer
@@ -1657,7 +1883,7 @@ class HorrorGame {
     // Instructions
     const hint=document.createElement('div');
     hint.style.cssText='position:fixed;bottom:40px;left:50%;transform:translateX(-50%);color:rgba(180,160,100,0.5);font:10px monospace;z-index:600;pointer-events:none;';
-    hint.textContent='ZQSD / Flèches = Bouger · E = Interagir · Shift = Courir';
+    hint.textContent='W/S = Avancer/Reculer · A/D = Latéral · Souris = Regarder · E = Interagir · Shift = Courir';
     document.body.appendChild(hint);
     this._hintEl=hint;
     setTimeout(()=>hint.style.opacity='0',5000);
