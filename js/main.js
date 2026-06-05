@@ -1662,6 +1662,21 @@ class HorrorGame {
     this._hintEl=hint;
     setTimeout(()=>hint.style.opacity='0',5000);
 
+    // Hint pointer lock
+    const lockHint = document.createElement('div');
+    lockHint.style.cssText = `
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:rgba(0,0,0,0.8); border:1px solid rgba(180,160,100,0.4);
+      color:rgba(200,180,130,0.9); font:14px serif; padding:16px 28px;
+      border-radius:6px; z-index:610; text-align:center; pointer-events:none;
+      transition:opacity 0.5s;
+    `;
+    lockHint.innerHTML = '🖱 <b>Clique</b> pour capturer la souris<br><span style="font-size:11px;opacity:0.6">Échap = libérer · ZQSD = bouger · E = interagir</span>';
+    document.body.appendChild(lockHint);
+    this._lockHint = lockHint;
+    // Cacher après 6s si pas de clic
+    setTimeout(()=>{ if(lockHint.style.opacity!=='0') lockHint.style.opacity='0.3'; }, 6000);
+
     window.addEventListener('resize',()=>{
       canvas.width=window.innerWidth; canvas.height=window.innerHeight;
       this.W=canvas.width; this.H=canvas.height;
@@ -1669,13 +1684,43 @@ class HorrorGame {
   }
 
   _bindInputs(){
-    window.addEventListener('keydown',e=>{
-      this.keys[e.code]=true;
+    // ——— Clavier ———
+    window.addEventListener('keydown', e => {
+      this.keys[e.code] = true;
       if(e.code==='KeyE') this._interact();
-      if(e.code==='KeyR'&&this.gameState==='ending') this._quit();
-      e.preventDefault();
+      if(e.code==='KeyR' && this.gameState==='ending') this._quit();
+      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
+        e.preventDefault();
     });
-    window.addEventListener('keyup',e=>{ this.keys[e.code]=false; });
+    window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+
+    // ——— Souris : regarder gauche/droite (Pointer Lock) ———
+    this._mouseSensitivity = 0.0018;
+    const canvas = document.getElementById('horror-canvas');
+
+    // Clic sur canvas = capturer le pointeur
+    canvas?.addEventListener('click', () => {
+      if(this.gameState !== 'playing') return;
+      canvas.requestPointerLock().catch(()=>{});
+    });
+
+    // Mouvement souris quand pointer lock actif
+    document.addEventListener('mousemove', e => {
+      if(document.pointerLockElement !== canvas) return;
+      if(this.gameState !== 'playing') return;
+      this.player.angle += e.movementX * this._mouseSensitivity;
+    });
+
+    // Haut/Bas souris : pas d'effet (FPS sans inclinaison)
+
+    // Maj du hint selon lock
+    document.addEventListener('pointerlockchange', () => {
+      const locked = document.pointerLockElement === canvas;
+      if(this._lockHint) this._lockHint.style.opacity = locked ? '0' : '1';
+    });
+
+    // Clic droit désactivé
+    canvas?.addEventListener('contextmenu', e => e.preventDefault());
   }
 
   _quit(){
